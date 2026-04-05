@@ -1,0 +1,33 @@
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// Пользователь приложения (регистрация / авторизация и профиль).
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  /// Хеш пароля (например bcrypt / argon2). Пароль в открытом виде не храним.
+  passwordHash       String
+  name               String
+  /// Уникальный никнейм (вход по нику или по e-mail).
+  nickname           String?  @unique
+  profileDescription String?
+  city               String?
+  /// Дата регистрации («присоединился»).
+  createdAt          DateTime @default(now())
+  /// Денормализованное число подписчиков; при появлении модели Follow можно считать через связи.
+  followersCount     Int      @default(0)
+  /// Количество прогулок (или связь с моделью Walk позже).
+  walksCount         Int      @default(0)
+  rating             Float    @default(0)
+  /// Избранное: JSON-массив идентификаторов (места, маршруты и т.д.).
+  favorites          Json     @default("[]")
+
+  @@map("users")
+}
