@@ -43,7 +43,12 @@
             v-else
             class="app-header__account"
           >
-            <span class="app-header__user-name">{{ displayName }}</span>
+            <NuxtLink
+              to="/profile"
+              class="app-header__user-name app-header__user-name--link"
+            >
+              {{ displayName }}
+            </NuxtLink>
             <button
               type="button"
               class="app-header__logout"
@@ -159,6 +164,15 @@ async function onLogout() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.app-header__user-name--link {
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.app-header__user-name--link:hover {
+  color: #1a5fff;
 }
 
 .app-header__logout {

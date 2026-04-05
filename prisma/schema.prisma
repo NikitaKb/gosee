@@ -17,6 +17,8 @@ model User {
   name               String
   /// Уникальный никнейм (вход по нику или по e-mail).
   nickname           String?  @unique
+  /// URL аватара (внешняя ссылка или путь из /public).
+  avatar             String?
   profileDescription String?
   city               String?
   /// Дата регистрации («присоединился»).

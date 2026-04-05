@@ -10,11 +10,12 @@
   --text-h6: 14px;
   --text-body: 16px;
   --text-small: 14px;
-  --color-bg: #121212;
-  --color-text: rgba(255, 255, 255, 0.92);
-  --color-text-muted: rgba(255, 255, 255, 0.65);
-  --color-link: #8ab4ff;
-  --color-link-hover: #b8d0ff;
+  /* Светлая тема (интерфейс GoSee — без чёрного фона страницы) */
+  --color-bg: #f5f7fa;
+  --color-text: #1a1a1a;
+  --color-text-muted: #666666;
+  --color-link: #1a5fff;
+  --color-link-hover: #0d4fe6;
 }
 
 html {
