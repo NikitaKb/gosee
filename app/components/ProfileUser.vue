@@ -36,7 +36,8 @@
           </span>
           
         </label>
-        <div class="profile-hero__text">
+        <div class="profile-hero__body">
+          <div class="profile-hero__text">
           <h1 class="profile-hero__name">
             {{ profile.name }}
           </h1>
@@ -140,6 +141,35 @@
           >
             {{ heroError }}
           </p>
+          </div>
+          <button
+            type="button"
+            class="profile-hero__logout"
+            aria-label="Выйти"
+            @click="onLogout"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line
+                x1="21"
+                y1="12"
+                x2="9"
+                y2="12"
+              />
+            </svg>
+          </button>
         </div>
       </div>
     </section>
@@ -289,6 +319,13 @@ const props = defineProps<{
 const emit = defineEmits<{
   updated: [profile: UserProfile]
 }>()
+
+const { logout } = useAuth()
+
+async function onLogout() {
+  await logout()
+  await navigateTo('/')
+}
 
 const activeTab = ref<'favorites' | 'walks'>('favorites')
 
@@ -618,6 +655,16 @@ const statCards = computed(() => [
   align-items: flex-start;
 }
 
+.profile-hero__body {
+  flex: 1;
+  min-width: min(100%, 240px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
 .profile-hero__avatar-label {
   position: relative;
   display: flex;
@@ -709,7 +756,36 @@ const statCards = computed(() => [
 
 .profile-hero__text {
   flex: 1;
-  min-width: min(100%, 240px);
+  min-width: min(100%, 200px);
+}
+
+.profile-hero__logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.profile-hero__logout:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.65);
+}
+
+.profile-hero__logout:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45);
 }
 
 .profile-hero__name {

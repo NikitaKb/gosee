@@ -39,23 +39,13 @@
               Войти
             </NuxtLink>
           </li>
-          <li
-            v-else
-            class="app-header__account"
-          >
+          <li v-else>
             <NuxtLink
               to="/profile"
               class="app-header__user-name app-header__user-name--link"
             >
               {{ displayName }}
             </NuxtLink>
-            <button
-              type="button"
-              class="app-header__logout"
-              @click="onLogout"
-            >
-              Выйти
-            </button>
           </li>
         </ul>
         <ButtonBlue
@@ -74,16 +64,11 @@ import logoSrc from '~/assets/logo-gosee.svg'
 
 const navItems = [
   { id: 'nav-direction', label: 'Направление', to: '/napravlenie' },
-  { id: 'nav-planning-1', label: 'Планирование', to: '/planning' },
-  { id: 'nav-planning-2', label: 'Планирование', to: '/planning' },
+  { id: 'nav-planning-1', label: 'Сообщество', to: '/community' },
+  { id: 'nav-planning-2', label: 'О нас', to: '/about' },
 ] as const
 
-const { user, displayName, logout } = useAuth()
-
-async function onLogout() {
-  await logout()
-  await navigateTo('/')
-}
+const { user, displayName } = useAuth()
 </script>
 
 <style scoped>
@@ -148,14 +133,6 @@ async function onLogout() {
   color: #1a5fff;
 }
 
-.app-header__account {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
 .app-header__user-name {
   font-size: 16px;
   font-weight: 600;
@@ -173,23 +150,6 @@ async function onLogout() {
 
 .app-header__user-name--link:hover {
   color: #1a5fff;
-}
-
-.app-header__logout {
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 500;
-  color: #1a5fff;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.app-header__logout:hover {
-  color: #0d4fe6;
 }
 
 .app-header__cta :deep(.btn-blue) {
