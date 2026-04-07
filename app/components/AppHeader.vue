@@ -48,12 +48,14 @@
             </NuxtLink>
           </li>
         </ul>
-        <ButtonBlue
-          type="button"
-          class="app-header__cta"
-        >
-          Начать планирование
-        </ButtonBlue>
+        <NuxtLink to="/planning">
+          <ButtonBlue
+            type="button"
+            class="app-header__cta"
+          >
+            Начать планирование
+          </ButtonBlue>
+        </NuxtLink>
       </nav>
     </div>
   </header>

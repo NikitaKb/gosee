@@ -7,6 +7,13 @@ export default defineNuxtConfig({
     authSecret:
       process.env.NUXT_AUTH_SECRET
       ?? 'local-dev-only-secret-min-32-chars-replace-me!!',
+    public: {
+      /**
+       * Задаётся через .env: NUXT_PUBLIC_GOOGLE_MAPS_API_KEY=...
+       * Не подставляйте process.env здесь — Nuxt сам мержит NUXT_PUBLIC_* в клиент и SSR.
+       */
+      googleMapsApiKey: '',
+    },
   },
 
   app: {
