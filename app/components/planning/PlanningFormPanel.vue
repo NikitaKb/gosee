@@ -69,9 +69,16 @@
           class="plan-form__input plan-form__input--with-icon"
           placeholder="Поиск…"
           autocomplete="address-level2"
-          @keyup.enter="$emit('applyCity')"
+          @keyup.enter.prevent="$emit('applyCity')"
           @input="$emit('update:cityQuery', ($event.target as HTMLInputElement).value)"
         >
+        <button
+          type="button"
+          class="plan-form__search"
+          @click="$emit('applyCity')"
+        >
+          Найти
+        </button>
       </div>
       <p
         v-if="geocodeError"
@@ -114,7 +121,30 @@
         class="plan-form__label"
         for="pf-points"
       >Точки маршрута</label>
+      <div
+        v-if="waypoints.length"
+        class="plan-form__waypoints"
+      >
+        <div
+          v-for="(p, index) in waypoints"
+          :key="`${p.lat}-${p.lng}-${index}`"
+          class="plan-form__waypoint-item"
+        >
+          <span class="plan-form__waypoint-text">
+            Точка {{ index + 1 }}: {{ p.lat.toFixed(5) }}, {{ p.lng.toFixed(5) }}
+          </span>
+          <button
+            type="button"
+            class="plan-form__waypoint-remove"
+            :aria-label="`Удалить точку ${index + 1}`"
+            @click="$emit('removeWaypoint', index)"
+          >
+            Удалить
+          </button>
+        </div>
+      </div>
       <textarea
+        v-else
         id="pf-points"
         :value="waypointsSummary"
         readonly
@@ -122,6 +152,14 @@
         class="plan-form__input plan-form__textarea"
         placeholder="Тут появятся точки вашего путешествия…"
       />
+      <button
+        v-if="waypoints.length"
+        type="button"
+        class="plan-form__clear-waypoints"
+        @click="$emit('clearWaypoints')"
+      >
+        Очистить все точки
+      </button>
     </div>
 
     <div class="plan-form__field">
@@ -173,13 +211,19 @@
           @input="$emit('update:timeEnd', ($event.target as HTMLInputElement).value)"
         >
       </div>
+      <p
+        v-if="routeEstimateHint"
+        class="plan-form__time-hint"
+      >
+        {{ routeEstimateHint }}
+      </p>
     </div>
 
     <button
       type="button"
       class="plan-form__cta"
-      :disabled="disableActions"
-      @click="$emit('startPlanning')"
+      :disabled="disableActions || !canSave"
+      @click="$emit('publishRoute')"
     >
       <img
         :src="iconMap"
@@ -188,21 +232,13 @@
         height="20"
         class="plan-form__cta-icon"
       >
-      Начать планирование
-    </button>
-
-    <button
-      type="button"
-      class="plan-form__save"
-      :disabled="disableActions || !canSave"
-      @click="$emit('saveRoute')"
-    >
-      Сохранить маршрут в галерею
+      Опубликовать маршрут
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { MapsLatLng } from '~/composables/useYandexMaps'
 import iconBicycle from '~/assets/images/icons/bicycle.svg'
 import iconBus from '~/assets/images/icons/bus.svg'
 import iconMap from '~/assets/images/icons/map.svg'
@@ -218,7 +254,9 @@ defineProps<{
   timeStart: string
   timeEnd: string
   travelModeId: string
+  waypoints: MapsLatLng[]
   waypointsSummary: string
+  routeEstimateHint: string
   geocodeError: string
   disableActions: boolean
   canSave: boolean
@@ -232,9 +270,10 @@ defineEmits<{
   'update:timeStart': [v: string]
   'update:timeEnd': [v: string]
   'update:travelModeId': [v: string]
+  removeWaypoint: [index: number]
+  clearWaypoints: []
   applyCity: []
-  startPlanning: []
-  saveRoute: []
+  publishRoute: []
 }>()
 
 const themeOptions = [
@@ -329,6 +368,42 @@ const modes = [
 
 .plan-form__input--with-icon {
   padding-left: 2.35rem;
+  padding-right: 5.65rem;
+}
+
+.plan-form__search {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.5rem 0.85rem;
+  border: none;
+  border-radius: 10px;
+  background: #2b65ff;
+  color: #fff;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.plan-form__search:hover {
+  background: #254fcc;
+  box-shadow: 0 4px 12px rgba(43, 101, 255, 0.28);
+}
+
+.plan-form__search:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(43, 101, 255, 0.24);
+}
+
+.plan-form__search:disabled {
+  background: #9eabdc;
+  cursor: not-allowed;
 }
 
 .plan-form__select {
@@ -344,6 +419,62 @@ const modes = [
   resize: vertical;
   min-height: 4.5rem;
   line-height: 1.45;
+}
+
+.plan-form__waypoints {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.plan-form__waypoint-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #dde4f1;
+  background: #f6f8fc;
+}
+
+.plan-form__waypoint-text {
+  font-size: 0.8125rem;
+  color: #384152;
+}
+
+.plan-form__waypoint-remove {
+  border: none;
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  background: #eef2ff;
+  color: #2b65ff;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.plan-form__waypoint-remove:hover {
+  background: #dfe8ff;
+}
+
+.plan-form__clear-waypoints {
+  align-self: flex-start;
+  margin-top: 0.2rem;
+  border: none;
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+  background: #ffe8ec;
+  color: #b00020;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.plan-form__clear-waypoints:hover {
+  background: #ffd9e0;
 }
 
 .plan-form__modes {
@@ -404,6 +535,12 @@ const modes = [
   font-weight: 500;
 }
 
+.plan-form__time-hint {
+  margin: 0.1rem 0 0;
+  font-size: 0.78rem;
+  color: #586277;
+}
+
 .plan-form__cta {
   display: inline-flex;
   align-items: center;
@@ -441,30 +578,6 @@ const modes = [
 
 .plan-form__cta-icon {
   filter: brightness(0) invert(1);
-}
-
-.plan-form__save {
-  width: 100%;
-  padding: 0.55rem;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #2b65ff;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.plan-form__save:hover:not(:disabled) {
-  color: #1f52d8;
-}
-
-.plan-form__save:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  text-decoration: none;
 }
 
 .plan-form__err {

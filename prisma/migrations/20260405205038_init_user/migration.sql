@@ -5,6 +5,7 @@ CREATE TABLE "users" (
     "passwordHash" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "nickname" TEXT,
+    "avatar" TEXT,
     "profileDescription" TEXT,
     "city" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -16,3 +17,4 @@ CREATE TABLE "users" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+CREATE UNIQUE INDEX "users_nickname_key" ON "users"("nickname");

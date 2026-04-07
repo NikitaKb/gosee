@@ -1,6 +1,5 @@
 import prisma from '../../utils/prisma'
 import { requireSessionUser } from '../../utils/session-user'
-import { toUserProfile } from '../../utils/profile-map'
 import { toWalkSummary } from '../../utils/walk-map'
 
 export default defineEventHandler(async (event) => {
@@ -9,5 +8,5 @@ export default defineEventHandler(async (event) => {
     where: { userId: user.id },
     orderBy: { createdAt: 'desc' },
   })
-  return { profile: toUserProfile(user, walks.map(toWalkSummary)) }
+  return { walks: walks.map(toWalkSummary) }
 })

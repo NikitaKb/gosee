@@ -13,13 +13,13 @@
 </template>
 
 <script setup lang="ts">
-import type { DirectionsTravelMode, MapsLatLng } from '~/composables/useGoogleMaps'
+import type { DirectionsTravelMode, MapsLatLng } from '~/composables/useYandexMaps'
 
 const props = withDefaults(
   defineProps<{
     travelMode?: DirectionsTravelMode
   }>(),
-  { travelMode: 'WALKING' },
+  { travelMode: 'pedestrian' },
 )
 
 const waypoints = defineModel<MapsLatLng[]>('waypoints', { default: () => [] })
@@ -29,62 +29,62 @@ const emit = defineEmits<{
   ready: []
 }>()
 
-const { load, createMap, computeDirectionsPath, getGoogle } = useGoogleMaps()
+const { load, createMap, computeDirectionsPath, getYandex } = useYandexMaps()
 
 const hintText = computed(() => {
   const m = props.travelMode
-  if (m === 'DRIVING') {
+  if (m === 'car') {
     return 'Кликайте по карте, чтобы задать точки маршрута (от двух точек строится путь на автомобиле).'
   }
-  if (m === 'BICYCLING') {
+  if (m === 'bicycle') {
     return 'Кликайте по карте для маршрута на велосипеде / роликах (от двух точек).'
   }
-  if (m === 'TRANSIT') {
-    return 'Кликайте по карте для маршрута на общественном транспорте (нужен включённый Transit в Google Cloud).'
+  if (m === 'masstransit') {
+    return 'Кликайте по карте для маршрута на общественном транспорте.'
   }
   return 'Кликайте по карте, чтобы добавить точки пешего маршрута (минимум две для построения пути).'
 })
 
-/** Светлая палитра карты, ближе к макету. */
-const MAP_STYLES: Array<Record<string, unknown>> = [
-  { elementType: 'geometry', stylers: [{ color: '#f5f3ef' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#d4e8f7' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#e8e4dc' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#dee8d8' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6b6b6b' }] },
-]
-
 const containerEl = ref<HTMLElement | null>(null)
 
-type GMap = ReturnType<NonNullable<ReturnType<typeof useGoogleMaps>['createMap']>>
-let map: GMap | null = null
-const markers: Array<{ setMap: (m: GMap | null) => void }> = []
-let polyline: { setMap: (m: GMap | null) => void; setPath: (p: MapsLatLng[]) => void } | null = null
+type YMap = ReturnType<NonNullable<ReturnType<typeof useYandexMaps>['createMap']>>
+let map: YMap | null = null
+let markers: Array<unknown> = []
+let polyline: unknown | null = null
 
 function redrawMarkers() {
-  const g = getGoogle()
-  if (!g?.maps || !map) {
+  const ymaps = getYandex()
+  if (!ymaps || !map) {
     return
   }
+  // Удаляем старые маркеры
   for (const m of markers) {
-    m.setMap(null)
+    map.geoObjects.remove(m)
   }
   markers.length = 0
+  // Добавляем новые маркеры
   for (const p of waypoints.value) {
-    const marker = new g.maps.Marker({
-      position: p,
-      map,
-    }) as unknown as { setMap: (x: GMap | null) => void }
-    markers.push(marker)
+    try {
+      const marker = new ymaps.Placemark([p.lat, p.lng], {
+        balloonContent: `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`,
+      }, {
+        preset: 'islands#redCircleDotIcon',
+      })
+      map.geoObjects.add(marker)
+      markers.push(marker)
+    } catch (error) {
+      console.error('Error adding marker:', error, p)
+    }
   }
 }
 
 async function rebuildPath() {
   const pts = waypoints.value
   if (pts.length < 2) {
-    polyline?.setMap(null)
-    polyline = null
+    if (polyline) {
+      map?.geoObjects.remove(polyline)
+      polyline = null
+    }
     emit('update:path', [...pts])
     return
   }
@@ -95,8 +95,8 @@ async function rebuildPath() {
     const path = await computeDirectionsPath(pts, props.travelMode)
     emit('update:path', path)
     applyPolyline(path)
-  }
-  catch {
+  } catch (error) {
+    console.error('Path computation error:', error)
     const fallback = [...pts]
     emit('update:path', fallback)
     applyPolyline(fallback)
@@ -104,22 +104,25 @@ async function rebuildPath() {
 }
 
 function applyPolyline(path: MapsLatLng[]) {
-  const g = getGoogle()
-  if (!g?.maps || !map) {
+  const ymaps = getYandex()
+  if (!ymaps || !map) {
     return
   }
-  if (!polyline) {
-    polyline = new g.maps.Polyline({
-      path,
-      geodesic: true,
-      strokeColor: '#2b65ff',
-      strokeOpacity: 0.95,
-      strokeWeight: 4,
-      map,
-    }) as unknown as { setMap: (m: GMap | null) => void; setPath: (p: MapsLatLng[]) => void }
-  }
-  else {
-    polyline.setPath(path)
+  const coords = path.map((p) => [p.lat, p.lng] as [number, number])
+  try {
+    if (!polyline) {
+      polyline = new ymaps.Polyline(coords, {}, {
+        strokeColor: '#2b65ff',
+        strokeOpacity: 0.95,
+        strokeWidth: 4,
+      })
+      map.geoObjects.add(polyline)
+    } else {
+      const poly = polyline as unknown as { geometry: { setCoordinates: (c: [number, number][]) => void } }
+      poly.geometry.setCoordinates(coords)
+    }
+  } catch (error) {
+    console.error('Error applying polyline:', error)
   }
 }
 
@@ -127,23 +130,55 @@ function fitToWaypoints() {
   if (!map || waypoints.value.length === 0) {
     return
   }
-  const g = getGoogle()
-  if (!g?.maps) {
+  const ymaps = getYandex() as any
+  if (!ymaps) {
     return
   }
-  if (waypoints.value.length === 1) {
-    map.setCenter(waypoints.value[0]!)
-    map.setZoom(15)
-    return
+  
+  try {
+    if (waypoints.value.length === 1) {
+      const pt = waypoints.value[0]!
+      map.setCenter([pt.lat, pt.lng], 15)
+      return
+    }
+    
+    // Для нескольких точек - находим границы
+    const coords = waypoints.value.map((p) => [p.lat, p.lng] as [number, number])
+    
+    // Пытаемся использовать setBounds если доступен
+    if (map.setBounds) {
+      try {
+        const bounds = ymaps.util?.bounds?.fromPoints(coords)
+        if (bounds) {
+          map.setBounds(bounds)
+          return
+        }
+      } catch (e) {
+        console.warn('setBounds failed:', e)
+      }
+    }
+    
+    // Fallback: вычисляем центр и зум вручную
+    const minLat = Math.min(...waypoints.value.map((p) => p.lat))
+    const maxLat = Math.max(...waypoints.value.map((p) => p.lat))
+    const minLng = Math.min(...waypoints.value.map((p) => p.lng))
+    const maxLng = Math.max(...waypoints.value.map((p) => p.lng))
+    
+    const center: MapsLatLng = {
+      lat: (minLat + maxLat) / 2,
+      lng: (minLng + maxLng) / 2,
+    }
+    
+    // Вычисляем примерный зум
+    const latDiff = maxLat - minLat
+    const lngDiff = maxLng - minLng
+    const maxDiff = Math.max(latDiff, lngDiff)
+    const zoom = maxDiff > 0.1 ? 13 : 15
+    
+    map.setCenter([center.lat, center.lng], zoom)
+  } catch (error) {
+    console.error('fitToWaypoints error:', error)
   }
-  const maps = g.maps as unknown as {
-    LatLngBounds: new () => { extend: (p: MapsLatLng) => void }
-  }
-  const bounds = new maps.LatLngBounds()
-  for (const p of waypoints.value) {
-    bounds.extend(p)
-  }
-  map.fitBounds(bounds as unknown as Parameters<GMap['fitBounds']>[0])
 }
 
 let rebuildTimer: ReturnType<typeof setTimeout> | null = null
@@ -176,40 +211,77 @@ watch(
 
 function centerMap(latlng: MapsLatLng, zoom = 14) {
   if (!map) {
+    setTimeout(() => {
+      if (map) {
+        const coords = [latlng.lat, latlng.lng] as [number, number]
+        map.setCenter(coords, zoom)
+        if (map.panTo) {
+          map.panTo(coords, { duration: 500 })
+        }
+      } else {
+        console.warn('Map is not ready yet')
+      }
+    }, 200)
     return
   }
-  map.setCenter(latlng)
-  map.setZoom(zoom)
+  const coords = [latlng.lat, latlng.lng] as [number, number]
+  map.setCenter(coords, zoom)
+  if (map.panTo) {
+    map.panTo(coords, { duration: 500 })
+  }
 }
+
+const mapReady = ref(false)
 
 defineExpose({
   centerMap,
+  mapReady,
 })
 
 onMounted(async () => {
-  const ok = await load()
-  if (!ok || !containerEl.value) {
-    return
-  }
-  const start: MapsLatLng = waypoints.value[0] ?? { lat: 55.751244, lng: 37.618423 }
-  map = createMap(containerEl.value, start, waypoints.value.length ? 14 : 12)
-  if (!map) {
-    return
-  }
-  const mapAny = map as unknown as { setOptions: (o: Record<string, unknown>) => void }
-  mapAny.setOptions({ styles: MAP_STYLES })
-  map.addListener('click', (e: { latLng?: { lat: () => number; lng: () => number } }) => {
-    if (!e.latLng) {
+  try {
+    const ok = await load()
+    if (!ok || !containerEl.value) {
+      console.error('Maps not loaded or container missing')
       return
     }
-    const next: MapsLatLng = { lat: e.latLng.lat(), lng: e.latLng.lng() }
-    const list = [...waypoints.value, next]
-    waypoints.value = list
-  })
-  redrawMarkers()
-  await rebuildPath()
-  fitToWaypoints()
-  emit('ready')
+
+    // Даём DOM время отрендериться
+    await nextTick()
+    
+    // Убеждаемся что контейнер имеет размеры
+    if (!containerEl.value.offsetWidth || !containerEl.value.offsetHeight) {
+      console.warn('Container has no dimensions')
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+
+    const start: MapsLatLng = waypoints.value[0] ?? { lat: 55.7558, lng: 37.6173 }
+    map = createMap(containerEl.value, start, waypoints.value.length ? 14 : 12)
+    if (!map) {
+      console.error('Failed to create map')
+      return
+    }
+
+    mapReady.value = true
+
+    // Обработка клика на карте
+    map.events.add('click', (e: unknown) => {
+      const coords = (e as unknown as { get?: (key: string) => [number, number] })?.get?.('coords')
+      if (!coords) {
+        return
+      }
+      const [lat, lng] = coords
+      const next: MapsLatLng = { lat, lng }
+      waypoints.value = [...waypoints.value, next]
+    })
+
+    redrawMarkers()
+    await rebuildPath()
+    fitToWaypoints()
+    emit('ready')
+  } catch (error) {
+    console.error('MapView mount error:', error)
+  }
 })
 </script>
 

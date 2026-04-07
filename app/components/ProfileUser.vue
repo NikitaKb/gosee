@@ -288,21 +288,49 @@
         role="tabpanel"
       >
         <p
-          v-if="profile.walksCount === 0"
+          v-if="profile.walks.length === 0"
           class="profile-panel__caption"
         >
-          У вас пока нет прогулок в каталоге — пример карточки:
+          У вас пока нет сохраненных прогулок. Создайте маршрут в планировщике.
         </p>
-        <p
+        <div
           v-else
-          class="profile-panel__caption"
+          class="profile-walks"
         >
-          Прогулок в профиле: {{ formatInt(profile.walksCount) }}. Пример карточки:
-        </p>
-        <WalkPreviewCard
-          variant="walk"
-          :demo="demoMoscow"
-        />
+          <article
+            v-for="walk in profile.walks"
+            :key="walk.id"
+            class="profile-walks__card"
+          >
+            <img
+              v-if="walk.coverImage"
+              :src="walk.coverImage"
+              alt=""
+              class="profile-walks__thumb"
+              width="120"
+              height="90"
+              loading="lazy"
+            >
+            <h3 class="profile-walks__title">
+              {{ walk.title }}
+            </h3>
+            <p class="profile-walks__meta">
+              {{ walk.city }} · {{ formatDistance(walk.distanceKm) }} · {{ walk.durationMinutes }} мин
+            </p>
+            <p
+              v-if="walk.description"
+              class="profile-walks__desc"
+            >
+              {{ walk.description }}
+            </p>
+            <NuxtLink
+              :to="`/walks/${walk.id}`"
+              class="profile-walks__link"
+            >
+              Открыть карточку прогулки
+            </NuxtLink>
+          </article>
+        </div>
       </div>
     </div>
   </div>
@@ -511,6 +539,10 @@ const initials = computed(() => {
 
 function formatInt(n: number): string {
   return new Intl.NumberFormat('ru-RU').format(n)
+}
+
+function formatDistance(distanceKm: number): string {
+  return `${distanceKm.toFixed(1)} км`
 }
 
 function formatRating(n: number): string {
@@ -1010,5 +1042,61 @@ const statCards = computed(() => [
   font-size: 0.875rem;
   line-height: 1.45;
   color: var(--pu-muted);
+}
+
+.profile-walks {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.profile-walks__card {
+  border: 1px solid #e5eaf4;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  background: #fff;
+}
+
+.profile-walks__thumb {
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 0.55rem;
+  border: 1px solid #e8ecf3;
+}
+
+.profile-walks__title {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.profile-walks__meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #667085;
+}
+
+.profile-walks__desc {
+  margin: 0.5rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #4b5565;
+}
+
+.profile-walks__link {
+  display: inline-flex;
+  margin-top: 0.6rem;
+  color: #2b65ff;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.profile-walks__link:hover {
+  text-decoration: underline;
 }
 </style>

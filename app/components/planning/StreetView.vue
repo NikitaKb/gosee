@@ -16,65 +16,72 @@
 </template>
 
 <script setup lang="ts">
-import type { MapsLatLng } from '~/composables/useGoogleMaps'
+import type { MapsLatLng } from '~/composables/useYandexMaps'
 
 const props = defineProps<{
   position: MapsLatLng | null
   heading?: number
 }>()
 
-const { load, createPanorama } = useGoogleMaps()
+const { load, loadPanoramaModule, createPanorama } = useYandexMaps()
 
 const containerEl = ref<HTMLElement | null>(null)
-type GPano = ReturnType<NonNullable<ReturnType<typeof useGoogleMaps>['createPanorama']>>
-let panorama: GPano | null = null
+let panorama: any = null
 
 const ariaLabel = computed(() =>
   props.position ? 'Панорама улиц в точке маршрута' : 'Панорама улиц',
 )
 
 async function ensurePanorama() {
-  if (!containerEl.value || panorama || !props.position) {
+  if (!containerEl.value || !props.position) {
     return
   }
-  const ok = await load()
-  if (!ok) {
-    return
-  }
-  panorama = createPanorama(containerEl.value, props.position)
-}
+  
+  try {
+    const ok = await load()
+    if (!ok) {
+      return
+    }
 
-function applyView() {
-  if (!panorama || !props.position) {
-    return
+    // Очищаем контейнер перед созданием новой панорамы
+    if (panorama) {
+      try {
+        panorama.destroy?.()
+      } catch {
+        // ignore
+      }
+    }
+
+    // Очищаем HTML
+    if (containerEl.value) {
+      containerEl.value.innerHTML = ''
+    }
+
+    // Создаём новую панораму
+    panorama = createPanorama(containerEl.value!, props.position)
+  } catch (error) {
+    console.error('Panorama error:', error)
   }
-  panorama.setPosition(props.position)
-  const h = Number.isFinite(props.heading) ? (props.heading as number) : 0
-  panorama.setPov({ heading: h, pitch: 2 })
 }
 
 watch(
   () => props.position,
   async (pos) => {
-    await ensurePanorama()
     if (pos) {
-      applyView()
+      await ensurePanorama()
     }
   },
   { immediate: true },
 )
 
-watch(
-  () => props.heading,
-  () => {
-    applyView()
-  },
-)
-
 onMounted(async () => {
   await ensurePanorama()
-  if (props.position) {
-    applyView()
+})
+
+onUnmounted(() => {
+  if (panorama) {
+    panorama.destroy()
+    panorama = null
   }
 })
 </script>

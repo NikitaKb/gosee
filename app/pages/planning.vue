@@ -5,8 +5,8 @@
       class="planning-page__warn planning-page__warn--standalone"
     >
       Задайте переменную окружения
-      <code>NUXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>
-      с ключом Google Maps JavaScript API (Geocoding, Directions; для «Транспорт» — также Routes API / Transit по документации Google).
+      <code>NUXT_PUBLIC_YANDEX_MAPS_API_KEY</code>
+      с ключом Yandex Maps API.
     </div>
 
     <client-only>
@@ -21,13 +21,16 @@
               v-model:time-start="timeStart"
               v-model:time-end="timeEnd"
               v-model:travel-mode-id="travelModeId"
+              :waypoints="waypoints"
               :waypoints-summary="waypointsSummary"
+              :route-estimate-hint="routeEstimateHint"
               :geocode-error="geocodeError"
               :disable-actions="false"
               :can-save="waypoints.length > 0"
+              @remove-waypoint="removeWaypoint"
+              @clear-waypoints="clearWaypoints"
               @apply-city="applyCity"
-              @start-planning="startPlanning"
-              @save-route="saveRoute"
+              @publish-route="publishRoute"
             />
             <div class="planning-page__map-col">
               <MapView
@@ -64,11 +67,6 @@
               />
             </div>
           </section>
-
-          <RouteGallery
-            :routes="savedRoutes"
-            @select="onSelectSaved"
-          />
         </div>
       </template>
       <template #fallback>
@@ -81,33 +79,19 @@
 </template>
 
 <script setup lang="ts">
-import type { DirectionsTravelMode, MapsLatLng } from '~/composables/useGoogleMaps'
+import type { DirectionsTravelMode, MapsLatLng } from '~/composables/useYandexMaps'
 import Controls from '~/components/planning/Controls.vue'
 import MapView from '~/components/planning/MapView.vue'
 import PlanningFormPanel from '~/components/planning/PlanningFormPanel.vue'
-import RouteGallery from '~/components/planning/RouteGallery.vue'
 import StreetView from '~/components/planning/StreetView.vue'
 
-type SavedRouteItem = {
-  id: string
-  name: string
-  city: string
-  coordinates: MapsLatLng[]
-  savedAt: string
-  theme?: string
-  pace?: string
-  travelModeId?: string
-  timeStart?: string
-  timeEnd?: string
-}
-
-const STORAGE_KEY = 'gosee-virtual-walk-routes'
 
 useHead({
   title: 'Виртуальный планировщик прогулок — GoSee',
 })
 
-const { apiKey, geocode, computeHeading } = useGoogleMaps()
+const { apiKey, load, geocode, computeHeading, getYandex } = useYandexMaps()
+
 
 const hasKey = computed(() => !!apiKey.value?.trim())
 
@@ -127,13 +111,13 @@ const directionsMode = computed<DirectionsTravelMode>(() => {
   switch (travelModeId.value) {
     case 'bike':
     case 'roller':
-      return 'BICYCLING'
+      return 'bicycle'
     case 'car':
-      return 'DRIVING'
+      return 'car'
     case 'transit':
-      return 'TRANSIT'
+      return 'masstransit'
     default:
-      return 'WALKING'
+      return 'pedestrian'
   }
 })
 
@@ -151,8 +135,6 @@ const waypointsSummary = computed(() => {
     )
     .join('\n')
 })
-
-const savedRoutes = ref<SavedRouteItem[]>([])
 
 const {
   currentIndex,
@@ -194,37 +176,95 @@ function onPrev() {
   prev()
 }
 
-function loadFromStorage(): SavedRouteItem[] {
-  if (typeof localStorage === 'undefined') {
-    return []
-  }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) {
-      return []
-    }
-    const data = JSON.parse(raw) as unknown
-    if (!Array.isArray(data)) {
-      return []
-    }
-    return data.filter(
-      (r): r is SavedRouteItem =>
-        r
-        && typeof r === 'object'
-        && typeof (r as SavedRouteItem).id === 'string'
-        && Array.isArray((r as SavedRouteItem).coordinates),
-    )
-  }
-  catch {
-    return []
-  }
+function toRadians(deg: number): number {
+  return (deg * Math.PI) / 180
 }
 
-function persistToStorage() {
-  if (typeof localStorage === 'undefined') {
+function getDistanceMeters(a: MapsLatLng, b: MapsLatLng): number {
+  const earthRadius = 6371000
+  const dLat = toRadians(b.lat - a.lat)
+  const dLng = toRadians(b.lng - a.lng)
+  const lat1 = toRadians(a.lat)
+  const lat2 = toRadians(b.lat)
+  const h =
+    Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return 2 * earthRadius * Math.asin(Math.sqrt(h))
+}
+
+function getRouteDistanceKm(points: MapsLatLng[]): number {
+  if (points.length < 2) {
+    return 0
+  }
+  let meters = 0
+  for (let i = 1; i < points.length; i++) {
+    meters += getDistanceMeters(points[i - 1]!, points[i]!)
+  }
+  return meters / 1000
+}
+
+function estimateDurationMinutes(distanceKm: number): number {
+  if (distanceKm <= 0) {
+    return 0
+  }
+
+  const paceSpeedMultiplier: Record<string, number> = {
+    Спокойный: 0.85,
+    Обычный: 1,
+    Активный: 1.2,
+  }
+
+  const modeSpeedKmh: Record<string, number> = {
+    walk: 5,
+    bike: 15,
+    roller: 13,
+    car: 28,
+    transit: 20,
+  }
+
+  const baseSpeed = modeSpeedKmh[travelModeId.value] ?? 5
+  const paceMultiplier = paceSpeedMultiplier[pace.value] ?? 1
+  const effectiveSpeed = Math.max(2, baseSpeed * paceMultiplier)
+
+  const pureTravelMinutes = (distanceKm / effectiveSpeed) * 60
+  const stopBufferByMode: Record<string, number> = {
+    walk: 1.15,
+    bike: 1.12,
+    roller: 1.1,
+    car: 1.2,
+    transit: 1.25,
+  }
+  const modeBuffer = stopBufferByMode[travelModeId.value] ?? 1.15
+
+  return Math.max(5, Math.round(pureTravelMinutes * modeBuffer))
+}
+
+const routeDistanceKm = computed(() => {
+  const sourcePath = path.value.length >= 2 ? path.value : waypoints.value
+  return getRouteDistanceKm(sourcePath)
+})
+
+const estimatedDurationMinutes = computed(() => estimateDurationMinutes(routeDistanceKm.value))
+
+const routeEstimateHint = computed(() => {
+  if (waypoints.value.length < 2 || routeDistanceKm.value <= 0) {
+    return ''
+  }
+  return `Дистанция: ~${routeDistanceKm.value.toFixed(1)} км, длительность: ~${estimatedDurationMinutes.value} мин`
+})
+
+function removeWaypoint(index: number) {
+  if (index < 0 || index >= waypoints.value.length) {
     return
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(savedRoutes.value))
+  const next = [...waypoints.value]
+  next.splice(index, 1)
+  waypoints.value = next
+}
+
+function clearWaypoints() {
+  waypoints.value = []
+  path.value = []
 }
 
 async function applyCity() {
@@ -234,61 +274,82 @@ async function applyCity() {
     geocodeError.value = 'Введите название города'
     return
   }
+
+  const ready = await load()
+  if (!ready) {
+    geocodeError.value = 'Не удалось загрузить карты. Попробуйте обновить страницу.'
+    return
+  }
+
   try {
     const loc = await geocode(q)
     cityLabel.value = q
-    mapViewRef.value?.centerMap(loc, 13)
-  }
-  catch (e) {
-    geocodeError.value
-      = e instanceof Error ? e.message : 'Не удалось найти город'
+    
+    // Ждём до 5 попыток центрирования с интервалом
+    let attempts = 0
+    const maxAttempts = 5
+    const attemptCenter = () => {
+      attempts++
+      
+      if (!mapViewRef.value) {
+        if (attempts < maxAttempts) {
+          setTimeout(attemptCenter, 300)
+        }
+        return
+      }
+      
+      try {
+        mapViewRef.value.centerMap(loc, 13)
+      } catch (err) {
+        if (attempts < maxAttempts) {
+          setTimeout(attemptCenter, 300)
+        }
+      }
+    }
+    
+    attemptCenter()
+    
+    // Проверяем поддержку панорам для этого города
+    const ymaps = getYandex() as any
+    if (ymaps?.panorama?.isSupported?.()) {
+      geocodeError.value = '✅ Панорамы доступны в этом городе'
+    } else {
+      geocodeError.value = '⚠️ Панорамы могут быть недоступны в этом городе'
+    }
+  } catch (e) {
+    geocodeError.value = e instanceof Error ? e.message : 'Не удалось найти город'
   }
 }
 
-async function startPlanning() {
+async function publishRoute() {
   await applyCity()
+  
+  if (waypoints.value.length >= 2) {
+    const totalMinutes = estimatedDurationMinutes.value
+
+    if (totalMinutes > 0) {
+      // Устанавливаем время начала (текущее время, если не указано вручную)
+      if (!timeStart.value) {
+        const now = new Date()
+        const hours = String(now.getHours()).padStart(2, '0')
+        const mins = String(now.getMinutes()).padStart(2, '0')
+        timeStart.value = `${hours}:${mins}`
+      }
+
+      const [startHour, startMin] = timeStart.value.split(':').map(Number)
+      const endTime = new Date()
+      endTime.setHours(startHour, startMin + totalMinutes)
+      const endHours = String(endTime.getHours()).padStart(2, '0')
+      const endMins = String(endTime.getMinutes()).padStart(2, '0')
+      timeEnd.value = `${endHours}:${endMins}`
+    }
+  }
+  
   await nextTick()
   document
     .querySelector('.planning-page__map-col')
     ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
-
-function saveRoute() {
-  const name = routeName.value.trim() || `Маршрут ${savedRoutes.value.length + 1}`
-  const item: SavedRouteItem = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now()}`,
-    name,
-    city: cityLabel.value.trim() || cityQuery.value.trim() || 'Город',
-    coordinates: waypoints.value.map((p) => ({ lat: p.lat, lng: p.lng })),
-    savedAt: new Date().toISOString(),
-    theme: theme.value.trim() || undefined,
-    pace: pace.value.trim() || undefined,
-    travelModeId: travelModeId.value,
-    timeStart: timeStart.value || undefined,
-    timeEnd: timeEnd.value || undefined,
-  }
-  savedRoutes.value = [item, ...savedRoutes.value]
-  persistToStorage()
-}
-
-function onSelectSaved(route: SavedRouteItem) {
-  cityQuery.value = route.city
-  cityLabel.value = route.city
-  routeName.value = route.name
-  theme.value = route.theme ?? ''
-  pace.value = route.pace ?? ''
-  travelModeId.value = route.travelModeId ?? 'walk'
-  timeStart.value = route.timeStart ?? ''
-  timeEnd.value = route.timeEnd ?? ''
-  stop()
-  waypoints.value = route.coordinates.map((c) => ({ lat: c.lat, lng: c.lng }))
-}
-
-onMounted(() => {
-  savedRoutes.value = loadFromStorage()
-})
 </script>
 
 <style scoped>

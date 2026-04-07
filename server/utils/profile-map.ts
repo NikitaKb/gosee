@@ -1,5 +1,6 @@
 import type { User } from '@prisma/client'
 import type { UserProfile } from '../../app/types/profile'
+import type { WalkSummary } from '../../app/types/walk'
 
 function favoritesCountFromJson(value: unknown): number {
   if (Array.isArray(value)) {
@@ -8,7 +9,7 @@ function favoritesCountFromJson(value: unknown): number {
   return 0
 }
 
-export function toUserProfile(user: User): UserProfile {
+export function toUserProfile(user: User, walks: WalkSummary[] = []): UserProfile {
   return {
     id: user.id,
     email: user.email,
@@ -19,8 +20,9 @@ export function toUserProfile(user: User): UserProfile {
     city: user.city,
     createdAt: user.createdAt.toISOString(),
     followersCount: user.followersCount,
-    walksCount: user.walksCount,
+    walksCount: walks.length || user.walksCount,
     rating: user.rating,
     favoritesCount: favoritesCountFromJson(user.favorites),
+    walks,
   }
 }

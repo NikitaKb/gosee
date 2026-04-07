@@ -1,3 +1,5 @@
+import type { WalkSummary } from './walk'
+
 /** Данные профиля с сервера `/api/profile/me`. */
 export type UserProfile = {
   id: string
@@ -12,4 +14,5 @@ export type UserProfile = {
   walksCount: number
   rating: number
   favoritesCount: number
+  walks: WalkSummary[]
 }

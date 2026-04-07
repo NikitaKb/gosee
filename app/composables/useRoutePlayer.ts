@@ -1,4 +1,4 @@
-import type { MapsLatLng } from './useGoogleMaps'
+import type { MapsLatLng } from './useYandexMaps'
 
 export function useRoutePlayer(
   path: Ref<MapsLatLng[]>,

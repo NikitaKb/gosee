@@ -30,6 +30,32 @@ model User {
   rating             Float    @default(0)
   /// Избранное: JSON-массив идентификаторов (места, маршруты и т.д.).
   favorites          Json     @default("[]")
+  walks              Walk[]
 
   @@map("users")
+}
+
+/// Прогулка, созданная пользователем в планировщике.
+model Walk {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  city            String
+  description     String?
+  theme           String?
+  pace            String?
+  travelModeId    String
+  timeStart       String?
+  timeEnd         String?
+  distanceKm      Float
+  durationMinutes Int
+  coverImage      String?
+  waypoints       Json
+  path            Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@map("walks")
 }

@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import type { MapsLatLng } from '~/composables/useGoogleMaps'
+import type { MapsLatLng } from '~/composables/useYandexMaps'
 
 type SavedRouteItem = {
   id: string
