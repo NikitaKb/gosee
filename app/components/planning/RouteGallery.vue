@@ -38,13 +38,13 @@
 </template>
 
 <script setup lang="ts">
-import type { MapsLatLng } from '~/composables/useYandexMaps'
+import type { YandexMapsLatLng } from '~/composables/useYandexMaps'
 
 type SavedRouteItem = {
   id: string
   name: string
   city: string
-  coordinates: MapsLatLng[]
+  coordinates: YandexMapsLatLng[]
   savedAt: string
   theme?: string
   pace?: string

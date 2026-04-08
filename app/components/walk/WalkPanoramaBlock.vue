@@ -22,12 +22,12 @@
 </template>
 
 <script setup lang="ts">
-import type { MapsLatLng } from '~/composables/useYandexMaps'
+import type { YandexMapsLatLng } from '~/composables/useYandexMaps'
 import Controls from '~/components/planning/Controls.vue'
 import StreetView from '~/components/planning/StreetView.vue'
 
 const props = defineProps<{
-  path: MapsLatLng[]
+  path: YandexMapsLatLng[]
 }>()
 
 const pathRef = toRef(props, 'path')

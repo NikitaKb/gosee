@@ -6,7 +6,7 @@
     >
       Задайте переменную окружения
       <code>NUXT_PUBLIC_YANDEX_MAPS_API_KEY</code>
-      с ключом Yandex Maps API.
+      с ключом Yandex Maps JavaScript API.
     </div>
 
     <client-only>
@@ -15,23 +15,33 @@
           <div class="planning-page__card">
             <PlanningFormPanel
               v-model:route-name="routeName"
+              v-model:description="routeDescription"
               v-model:city-query="cityQuery"
               v-model:theme="theme"
               v-model:pace="pace"
               v-model:time-start="timeStart"
               v-model:time-end="timeEnd"
               v-model:travel-mode-id="travelModeId"
+              :cover-preview-url="coverPreviewUrl"
               :waypoints="waypoints"
               :waypoints-summary="waypointsSummary"
               :route-estimate-hint="routeEstimateHint"
               :geocode-error="geocodeError"
-              :disable-actions="false"
-              :can-save="waypoints.length > 0"
+              :disable-actions="isPublishing"
+              :can-save="waypoints.length >= 2"
+              @update:cover-file="onCoverFile"
               @remove-waypoint="removeWaypoint"
               @clear-waypoints="clearWaypoints"
               @apply-city="applyCity"
               @publish-route="publishRoute"
             />
+            <p
+              v-if="routeError"
+              class="planning-page__error"
+              role="alert"
+            >
+              {{ routeError }}
+            </p>
             <div class="planning-page__map-col">
               <MapView
                 ref="mapViewRef"
@@ -41,8 +51,6 @@
               />
             </div>
           </div>
-
-         
 
           <section
             class="planning-page__preview"
@@ -79,35 +87,65 @@
 </template>
 
 <script setup lang="ts">
-import type { DirectionsTravelMode, MapsLatLng } from '~/composables/useYandexMaps'
+import type { YandexMapsLatLng, YandexDirectionsTravelMode } from '~/composables/useYandexMaps'
 import Controls from '~/components/planning/Controls.vue'
 import MapView from '~/components/planning/MapView.vue'
 import PlanningFormPanel from '~/components/planning/PlanningFormPanel.vue'
 import StreetView from '~/components/planning/StreetView.vue'
 
-
 useHead({
   title: 'Виртуальный планировщик прогулок — GoSee',
 })
 
+const router = useRouter()
 const { apiKey, load, geocode, computeHeading, getYandex } = useYandexMaps()
-
 
 const hasKey = computed(() => !!apiKey.value?.trim())
 
-const mapViewRef = ref<{ centerMap: (p: MapsLatLng, z?: number) => void } | null>(null)
+const mapViewRef = ref<{ centerMap: (p: YandexMapsLatLng, z?: number) => void } | null>(null)
 
 const routeName = ref('')
+const routeDescription = ref('')
 const cityQuery = ref('Москва')
 const cityLabel = ref('Москва')
 const geocodeError = ref('')
+const routeError = ref('')
+const isPublishing = ref(false)
 const theme = ref('')
 const pace = ref('')
 const timeStart = ref('')
 const timeEnd = ref('')
 const travelModeId = ref('walk')
 
-const directionsMode = computed<DirectionsTravelMode>(() => {
+const coverFile = ref<File | null>(null)
+const coverPreviewUrl = ref<string | null>(null)
+
+function onCoverFile(file: File | null) {
+  routeError.value = ''
+  if (coverPreviewUrl.value) {
+    URL.revokeObjectURL(coverPreviewUrl.value)
+    coverPreviewUrl.value = null
+  }
+  coverFile.value = null
+  if (!file) {
+    return
+  }
+  const okTypes = ['image/jpeg', 'image/png', 'image/webp']
+  if (!okTypes.includes(file.type) || file.size > 4 * 1024 * 1024) {
+    routeError.value = 'Превью: только JPEG, PNG или WebP, не больше 4 МБ'
+    return
+  }
+  coverFile.value = file
+  coverPreviewUrl.value = URL.createObjectURL(file)
+}
+
+onUnmounted(() => {
+  if (coverPreviewUrl.value) {
+    URL.revokeObjectURL(coverPreviewUrl.value)
+  }
+})
+
+const directionsMode = computed<YandexDirectionsTravelMode>(() => {
   switch (travelModeId.value) {
     case 'bike':
     case 'roller':
@@ -121,13 +159,14 @@ const directionsMode = computed<DirectionsTravelMode>(() => {
   }
 })
 
-const waypoints = ref<MapsLatLng[]>([])
-const path = ref<MapsLatLng[]>([])
+const waypoints = ref<YandexMapsLatLng[]>([])
+const path = ref<YandexMapsLatLng[]>([])
 
 const waypointsSummary = computed(() => {
   if (waypoints.value.length === 0) {
     return ''
   }
+
   return waypoints.value
     .map(
       (p, i) =>
@@ -164,8 +203,8 @@ const streetHeading = computed(() => {
   return computeHeading(cur, nextPt)
 })
 
-function onPathUpdate(next: MapsLatLng[]) {
-  path.value = next
+function onPathUpdate(data: { path: YandexMapsLatLng[]; distanceKm: number; durationMinutes: number }) {
+  path.value = data.path
 }
 
 function onNext() {
@@ -180,7 +219,7 @@ function toRadians(deg: number): number {
   return (deg * Math.PI) / 180
 }
 
-function getDistanceMeters(a: MapsLatLng, b: MapsLatLng): number {
+function getDistanceMeters(a: YandexMapsLatLng, b: YandexMapsLatLng): number {
   const earthRadius = 6371000
   const dLat = toRadians(b.lat - a.lat)
   const dLng = toRadians(b.lng - a.lng)
@@ -192,7 +231,7 @@ function getDistanceMeters(a: MapsLatLng, b: MapsLatLng): number {
   return 2 * earthRadius * Math.asin(Math.sqrt(h))
 }
 
-function getRouteDistanceKm(points: MapsLatLng[]): number {
+function getRouteDistanceKm(points: YandexMapsLatLng[]): number {
   if (points.length < 2) {
     return 0
   }
@@ -284,32 +323,11 @@ async function applyCity() {
   try {
     const loc = await geocode(q)
     cityLabel.value = q
-    
-    // Ждём до 5 попыток центрирования с интервалом
-    let attempts = 0
-    const maxAttempts = 5
-    const attemptCenter = () => {
-      attempts++
-      
-      if (!mapViewRef.value) {
-        if (attempts < maxAttempts) {
-          setTimeout(attemptCenter, 300)
-        }
-        return
-      }
-      
-      try {
-        mapViewRef.value.centerMap(loc, 13)
-      } catch (err) {
-        if (attempts < maxAttempts) {
-          setTimeout(attemptCenter, 300)
-        }
-      }
+
+    if (mapViewRef.value?.centerMap) {
+      mapViewRef.value.centerMap(loc, 12)
     }
-    
-    attemptCenter()
-    
-    // Проверяем поддержку панорам для этого города
+
     const ymaps = getYandex() as any
     if (ymaps?.panorama?.isSupported?.()) {
       geocodeError.value = '✅ Панорамы доступны в этом городе'
@@ -322,33 +340,80 @@ async function applyCity() {
 }
 
 async function publishRoute() {
+  routeError.value = ''
+  isPublishing.value = true
+
   await applyCity()
-  
-  if (waypoints.value.length >= 2) {
-    const totalMinutes = estimatedDurationMinutes.value
 
-    if (totalMinutes > 0) {
-      // Устанавливаем время начала (текущее время, если не указано вручную)
-      if (!timeStart.value) {
-        const now = new Date()
-        const hours = String(now.getHours()).padStart(2, '0')
-        const mins = String(now.getMinutes()).padStart(2, '0')
-        timeStart.value = `${hours}:${mins}`
-      }
-
-      const [startHour, startMin] = timeStart.value.split(':').map(Number)
-      const endTime = new Date()
-      endTime.setHours(startHour, startMin + totalMinutes)
-      const endHours = String(endTime.getHours()).padStart(2, '0')
-      const endMins = String(endTime.getMinutes()).padStart(2, '0')
-      timeEnd.value = `${endHours}:${endMins}`
-    }
+  if (!routeName.value.trim()) {
+    routeError.value = 'Укажите название маршрута'
+    isPublishing.value = false
+    return
   }
-  
-  await nextTick()
-  document
-    .querySelector('.planning-page__map-col')
-    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (waypoints.value.length < 2) {
+    routeError.value = 'Нужно минимум 2 точки маршрута'
+    isPublishing.value = false
+    return
+  }
+  if (!cityLabel.value.trim()) {
+    routeError.value = 'Выберите город и нажмите «Найти»'
+    isPublishing.value = false
+    return
+  }
+
+  if (!timeStart.value) {
+    const now = new Date()
+    const hours = String(now.getHours()).padStart(2, '0')
+    const mins = String(now.getMinutes()).padStart(2, '0')
+    timeStart.value = `${hours}:${mins}`
+  }
+
+  try {
+    let coverImage: string | null = null
+    if (coverFile.value) {
+      const fd = new FormData()
+      fd.append('file', coverFile.value)
+      const uploaded = await $fetch<{ imageUrl: string }>('/api/walks/cover', {
+        method: 'POST',
+        credentials: 'include',
+        body: fd,
+      })
+      coverImage = uploaded.imageUrl
+    }
+
+    const desc = routeDescription.value.trim()
+    const response = await $fetch<{ walk: { id: string } }>('/api/walks', {
+      method: 'POST',
+      credentials: 'include',
+      body: {
+        title: routeName.value,
+        city: cityLabel.value || cityQuery.value,
+        description: desc || null,
+        theme: theme.value || null,
+        pace: pace.value || null,
+        travelModeId: travelModeId.value,
+        timeStart: timeStart.value || null,
+        timeEnd: timeEnd.value || null,
+        distanceKm: routeDistanceKm.value,
+        durationMinutes: estimatedDurationMinutes.value,
+        coverImage,
+        waypoints: waypoints.value,
+        path: path.value.length >= 2 ? path.value : waypoints.value,
+      },
+    })
+
+    if (response?.walk?.id) {
+      await router.push(`/walks/${response.walk.id}`)
+      return
+    }
+
+    routeError.value = 'Не удалось создать маршрут. Попробуйте снова.'
+  } catch (error) {
+    const err = error as { data?: { statusMessage?: string }; statusMessage?: string }
+    routeError.value = err.data?.statusMessage ?? err.statusMessage ?? 'Ошибка при сохранении маршрута'
+  } finally {
+    isPublishing.value = false
+  }
 }
 </script>
 
@@ -362,7 +427,7 @@ async function publishRoute() {
   flex: 1;
   font-family: 'Inter', system-ui, sans-serif;
   color: #1a1a1a;
-  background: linear-gradient(165deg, #e2ecff 0%, #f2f5fb 42%, #f0f3f8 100%);
+ 
   border-radius: 0;
 }
 
@@ -435,14 +500,36 @@ async function publishRoute() {
 
 .planning-page__preview {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 1rem;
-  align-items: start;
+  grid-template-columns: 1fr;
+  gap: 0;
+  align-items: stretch;
+  min-height: 500px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  position: relative;
+}
+
+.planning-page__preview :deep(.street-view) {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  min-height: 500px;
+}
+
+.planning-page__preview :deep(.street-view__canvas) {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  min-height: 500px;
+  background: #1a1f2e;
 }
 
 .planning-page__preview-controls {
-  position: sticky;
-  top: 1rem;
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  z-index: 10;
 }
 
 .planning-page__warn {
@@ -455,8 +542,14 @@ async function publishRoute() {
   color: #5c4a00;
 }
 
-.planning-page__warn--standalone {
-  margin-bottom: 1rem;
+.planning-page__error {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: #fff1f1;
+  border: 1px solid #f2c2c2;
+  color: #9b2424;
+  font-size: 0.95rem;
 }
 
 .planning-page__warn code {
@@ -488,16 +581,23 @@ async function publishRoute() {
 
   .planning-page__preview {
     grid-template-columns: 1fr;
+    min-height: 420px;
+  }
+
+  .planning-page__preview :deep(.street-view__canvas) {
+    min-height: 420px;
   }
 
   .planning-page__preview-controls {
-    position: static;
-    width: 100%;
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    width: auto;
   }
 
   .planning-page__preview-controls :deep(.plan-controls) {
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    justify-content: flex-start;
   }
 }
 </style>

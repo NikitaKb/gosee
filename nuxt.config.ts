@@ -9,8 +9,12 @@ export default defineNuxtConfig({
       ?? 'local-dev-only-secret-min-32-chars-replace-me!!',
     public: {
       /**
-       * Задаётся через .env: NUXT_PUBLIC_YANDEX_MAPS_API_KEY=...
+       * Задаётся через .env: NUXT_PUBLIC_GOOGLE_MAPS_API_KEY=...
        * Не подставляйте process.env здесь — Nuxt сам мержит NUXT_PUBLIC_* в клиент и SSR.
+       */
+      googleMapsApiKey: '',
+      /**
+       * Задаётся через .env: NUXT_PUBLIC_YANDEX_MAPS_API_KEY=...
        */
       yandexMapsApiKey: '',
     },
@@ -48,11 +52,11 @@ export default defineNuxtConfig({
   /** На Windows нативный watcher иногда рвёт IPC у Vite → «IPC connection closed». */
   ...(process.platform === 'win32'
     ? {
-      vite: {
-        server: {
-          watch: { usePolling: true, interval: 300 },
+        vite: {
+          server: {
+            watch: { usePolling: true, interval: 300 },
+          },
         },
-      },
-    }
+      }
     : {}),
 })

@@ -16,10 +16,11 @@
 </template>
 
 <script setup lang="ts">
-import type { MapsLatLng } from '~/composables/useYandexMaps'
+import { nextTick, watch } from 'vue'
+import type { YandexMapsLatLng } from '~/composables/useYandexMaps'
 
 const props = defineProps<{
-  position: MapsLatLng | null
+  position: YandexMapsLatLng | null
   heading?: number
 }>()
 
@@ -32,33 +33,49 @@ const ariaLabel = computed(() =>
   props.position ? 'Панорама улиц в точке маршрута' : 'Панорама улиц',
 )
 
+function destroyPanorama() {
+  if (panorama) {
+    try {
+      panorama.destroy?.()
+    } catch {
+      // ignore
+    }
+    panorama = null
+  }
+  if (containerEl.value) {
+    containerEl.value.innerHTML = ''
+  }
+}
+
 async function ensurePanorama() {
-  if (!containerEl.value || !props.position) {
+  await nextTick()
+  const el = containerEl.value
+  const pos = props.position
+  if (!el || !pos) {
     return
   }
-  
+
   try {
     const ok = await load()
     if (!ok) {
       return
     }
 
-    // Очищаем контейнер перед созданием новой панорамы
-    if (panorama) {
+    await loadPanoramaModule()
+
+    destroyPanorama()
+
+    panorama = await createPanorama(el, pos)
+
+    // После flex/grid раскладки контейнер может получить размер на следующем кадре — подгоняем плеер.
+    await nextTick()
+    requestAnimationFrame(() => {
       try {
-        panorama.destroy?.()
+        panorama?.fitToViewport?.()
       } catch {
         // ignore
       }
-    }
-
-    // Очищаем HTML
-    if (containerEl.value) {
-      containerEl.value.innerHTML = ''
-    }
-
-    // Создаём новую панораму
-    panorama = createPanorama(containerEl.value!, props.position)
+    })
   } catch (error) {
     console.error('Panorama error:', error)
   }
@@ -66,16 +83,18 @@ async function ensurePanorama() {
 
 watch(
   () => props.position,
-  async (pos) => {
-    if (pos) {
-      await ensurePanorama()
+  (pos) => {
+    if (!pos) {
+      destroyPanorama()
+      return
     }
+    void ensurePanorama()
   },
-  { immediate: true },
+  { deep: true, flush: 'post' },
 )
 
-onMounted(async () => {
-  await ensurePanorama()
+onMounted(() => {
+  void ensurePanorama()
 })
 
 onUnmounted(() => {

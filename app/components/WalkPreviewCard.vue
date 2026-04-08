@@ -33,14 +33,32 @@
     </div>
     <div class="walk-card__main">
       <h3 class="walk-card__title">
-        {{ demo.title }}
+        {{ display.title }}
       </h3>
       <p class="walk-card__type">
-        {{ demo.typeLabel }}
+        {{ display.typeLabel }}
       </p>
       <div class="walk-card__stats">
         <span class="walk-card__stat">
           <svg
+            v-if="walk"
+            class="walk-card__stat-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+            />
+            <path d="M12 6v6l4 2" />
+          </svg>
+          <svg
+            v-else
             class="walk-card__stat-icon"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -51,7 +69,7 @@
           >
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>
-          {{ demo.rating }}
+          {{ display.statPrimary }}
         </span>
         <span class="walk-card__stat">
           <svg
@@ -71,7 +89,7 @@
             <path d="M10 22V12M14 22V12" />
             <path d="M8 12h8l-1 6H9l-1-6z" />
           </svg>
-          {{ demo.distance }}
+          {{ display.distance }}
         </span>
         <span class="walk-card__stat">
           <svg
@@ -90,14 +108,22 @@
               r="3"
             />
           </svg>
-          {{ demo.place }}
+          {{ display.place }}
         </span>
       </div>
       <p class="walk-card__desc">
-        {{ demo.description }}
+        {{ display.description }}
       </p>
       <div class="walk-card__actions">
+        <NuxtLink
+          v-if="display.walkId"
+          :to="`/walks/${display.walkId}`"
+          class="walk-card__more"
+        >
+          Подробнее
+        </NuxtLink>
         <button
+          v-else
           type="button"
           class="walk-card__more"
         >
@@ -129,9 +155,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+import type { WalkSummary } from '~/types/walk'
+
 const props = defineProps<{
   variant: 'walk' | 'favorite'
-  demo: {
+  /** Реальная прогулка из API (приоритет над demo). */
+  walk?: WalkSummary | null
+  /** Пример карточки, если walk не задан (например, избранное без списка). */
+  demo?: {
     title: string
     typeLabel: string
     rating: string
@@ -143,15 +174,101 @@ const props = defineProps<{
   }
 }>()
 
+const PLACEHOLDER_IMAGE
+  = 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=560&h=360&fit=crop&q=80'
+
+function travelModeLabel(id: string): string {
+  const map: Record<string, string> = {
+    walk: 'Пешком',
+    bike: 'Велосипед',
+    car: 'Авто',
+    transit: 'Транспорт',
+    roller: 'Ролики',
+  }
+  return map[id] ?? id
+}
+
+function formatWalkType(w: WalkSummary): string {
+  const parts = [travelModeLabel(w.travelModeId), w.theme, w.pace].filter(Boolean) as string[]
+  return parts.join(' · ') || 'Прогулка'
+}
+
+function formatDistanceKm(km: number): string {
+  if (!Number.isFinite(km) || km <= 0) {
+    return '—'
+  }
+  if (km < 1) {
+    return `${Math.round(km * 1000)} м`
+  }
+  const s = km >= 10 ? km.toFixed(0) : km.toFixed(1)
+  return `${s.replace(/\.0$/, '')} км`
+}
+
+function formatDurationMinutes(min: number): string {
+  if (!Number.isFinite(min) || min <= 0) {
+    return '—'
+  }
+  if (min < 60) {
+    return `${Math.round(min)} мин`
+  }
+  const h = Math.floor(min / 60)
+  const m = Math.round(min % 60)
+  return m ? `${h} ч ${m} мин` : `${h} ч`
+}
+
+const display = computed(() => {
+  const w = props.walk
+  if (w) {
+    const desc
+      = w.description?.trim()
+        || [w.theme, w.pace].filter(Boolean).join(' · ')
+        || 'Описание не указано.'
+    const cover = w.coverImage?.trim()
+    const img = cover || PLACEHOLDER_IMAGE
+    return {
+      title: w.title,
+      typeLabel: formatWalkType(w),
+      statPrimary: formatDurationMinutes(w.durationMinutes),
+      distance: formatDistanceKm(w.distanceKm),
+      place: w.city,
+      description: desc,
+      image: img,
+      images: cover ? [cover] : [img],
+      walkId: w.id,
+    }
+  }
+
+  const d = props.demo
+  if (d) {
+    return {
+      title: d.title,
+      typeLabel: d.typeLabel,
+      statPrimary: d.rating,
+      distance: d.distance,
+      place: d.place,
+      description: d.description,
+      image: d.image,
+      images: d.images?.length ? [...d.images] : [d.image],
+      walkId: null as string | null,
+    }
+  }
+
+  return {
+    title: '—',
+    typeLabel: '—',
+    statPrimary: '—',
+    distance: '—',
+    place: '—',
+    description: 'Нет данных для отображения.',
+    image: PLACEHOLDER_IMAGE,
+    images: [PLACEHOLDER_IMAGE],
+    walkId: null as string | null,
+  }
+})
+
 const activeSlide = ref(0)
 
-const imageList = computed(() => {
-  const extra = props.demo.images
-  if (extra?.length) {
-    return [...extra]
-  }
-  return [props.demo.image]
-})
+const imageList = computed(() => display.value.images)
 
 const currentImage = computed(
   () => imageList.value[activeSlide.value] ?? imageList.value[0]!,
@@ -310,6 +427,11 @@ watch(imageList, (list) => {
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.15s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .walk-card__more:hover {
