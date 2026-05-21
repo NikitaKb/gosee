@@ -28,9 +28,11 @@ model User {
   /// Количество прогулок (или связь с моделью Walk позже).
   walksCount         Int      @default(0)
   rating             Float    @default(0)
-  /// Избранное: JSON-массив идентификаторов (места, маршруты и т.д.).
-  favorites          Json     @default("[]")
   walks              Walk[]
+  favoriteWalks      Favorite[]
+  followsOutgoing    Follow[] @relation("Follower")
+  followsIncoming    Follow[] @relation("Following")
+  walkRatings        Rating[]
 
   @@map("users")
 }
@@ -55,7 +57,56 @@ model Walk {
   path            Json
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  favoritedBy     Favorite[]
+  ratings         Rating[]
 
   @@index([userId, createdAt])
+  @@index([city])
   @@map("walks")
+}
+
+/// Подписка: follower подписан на following.
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+/// Оценка маршрута (1–5), одна активная оценка на пару пользователь + маршрут.
+model Rating {
+  id        String   @id @default(cuid())
+  userId    String
+  walkId    String
+  value     Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  walk      Walk     @relation(fields: [walkId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, walkId])
+  @@index([walkId])
+  @@map("ratings")
+}
+
+/// Маршрут в избранном у пользователя.
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  walkId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  walk      Walk     @relation(fields: [walkId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, walkId])
+  @@index([userId])
+  @@index([walkId])
+  @@map("favorites")
 }

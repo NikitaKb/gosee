@@ -72,7 +72,8 @@ defineEmits<{
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.65rem 0.85rem;
+  width: 100%;
+  padding: 0.75rem;
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 6px 28px rgba(15, 30, 60, 0.12);
@@ -80,12 +81,14 @@ defineEmits<{
 }
 
 .plan-controls__btn {
-  padding: 0.5rem 0.95rem;
+  flex: 1 1 calc(50% - 0.25rem);
+  min-height: 2.875rem;
+  padding: 0.625rem 0.95rem;
   border-radius: 10px;
   border: 1px solid #d8dee8;
   background: #f7f9fc;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #1a1a1a;
   cursor: pointer;
@@ -118,5 +121,24 @@ defineEmits<{
 
 .plan-controls__btn--ghost {
   background: transparent;
+}
+
+@media (max-width: 480px) {
+  .plan-controls__btn {
+    flex-basis: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .plan-controls {
+    width: auto;
+    padding: 0.65rem 0.85rem;
+  }
+
+  .plan-controls__btn {
+    flex: 0 1 auto;
+    min-height: 2.75rem;
+    font-size: 0.875rem;
+  }
 }
 </style>

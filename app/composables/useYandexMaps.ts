@@ -1,4 +1,5 @@
 export type YandexMapsLatLng = { lat: number; lng: number }
+export type YandexWaypoint = YandexMapsLatLng & { label?: string | null }
 
 /** Режим Yandex Directions. */
 export type YandexDirectionsTravelMode = 'pedestrian' | 'bicycle' | 'car' | 'masstransit'
@@ -25,10 +26,12 @@ type YandexPanorama = {
 type YandexLatLng = [number, number]
 type YandexMap = {
     setCenter: (coords: YandexLatLng, zoom?: number, opts?: Record<string, unknown>) => void
+    setBounds: (bounds: [[number, number], [number, number]], opts?: Record<string, unknown>) => void
     getCenter: () => YandexLatLng
     setZoom: (z: number) => void
     getZoom: () => number
     getBounds: () => [[number, number], [number, number]]
+    container?: { fitToViewport?: () => void }
     geoObjects: { add: (obj: unknown) => void; remove: (obj: unknown) => void; removeAll: () => void }
     events: { add: (ev: string, fn: (e: { get: (key: string) => unknown } | null) => void) => unknown }
 }
@@ -172,6 +175,26 @@ export function yandexSamplePath(points: YandexMapsLatLng[], maxPoints: number):
         out.push({ lat: p.lat, lng: p.lng })
     }
     return out
+}
+
+function getPathDistanceMeters(path: YandexMapsLatLng[]): number {
+    if (path.length < 2) {
+        return 0
+    }
+
+    let meters = 0
+    for (let i = 1; i < path.length; i++) {
+        const prev = path[i - 1]!
+        const curr = path[i]!
+        const dLat = (curr.lat - prev.lat) * Math.PI / 180
+        const dLng = (curr.lng - prev.lng) * Math.PI / 180
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+            + Math.cos(prev.lat * Math.PI / 180) * Math.cos(curr.lat * Math.PI / 180)
+            * Math.sin(dLng / 2) * Math.sin(dLng / 2)
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        meters += 6371000 * c
+    }
+    return meters
 }
 
 export function useYandexMaps() {
@@ -439,6 +462,121 @@ export function useYandexMaps() {
             })
     }
 
+    function reverseGeocode(point: YandexMapsLatLng): Promise<string> {
+        const key = apiKey.value.trim()
+        if (!key) {
+            return Promise.reject(new Error('API key not set'))
+        }
+
+        const url = new URL('https://geocode-maps.yandex.ru/1.x/')
+        url.searchParams.set('apikey', key)
+        url.searchParams.set('geocode', `${point.lng},${point.lat}`)
+        url.searchParams.set('lang', 'ru_RU')
+        url.searchParams.set('format', 'json')
+        url.searchParams.set('results', '1')
+
+        return fetch(url.toString())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`)
+                }
+                return res.json()
+            })
+            .then((data: any) => {
+                const member = data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject
+                const text = member?.metaDataProperty?.GeocoderMetaData?.text
+                if (typeof text === 'string' && text.trim()) {
+                    return text.trim()
+                }
+                return `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`
+            })
+            .catch((error: any) => {
+                console.error('Reverse geocode error:', error)
+                return `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`
+            })
+    }
+
+    function interpolateWaypoints(
+        path: YandexMapsLatLng[],
+        targetCount: number,
+    ): YandexMapsLatLng[] {
+        if (path.length === 0 || targetCount <= 0) {
+            return []
+        }
+        if (path.length === 1 || targetCount === 1) {
+            return [{ ...path[0]! }]
+        }
+        if (targetCount === 2) {
+            return [{ ...path[0]! }, { ...path[path.length - 1]! }]
+        }
+
+        const segmentLengths: number[] = []
+        let totalLength = 0
+        for (let i = 1; i < path.length; i++) {
+            const prev = path[i - 1]!
+            const curr = path[i]!
+            const length = Math.hypot(curr.lat - prev.lat, curr.lng - prev.lng)
+            segmentLengths.push(length)
+            totalLength += length
+        }
+
+        if (totalLength <= 0) {
+            return Array.from({ length: targetCount }, (_, index) => {
+                const point = index === targetCount - 1 ? path[path.length - 1]! : path[0]!
+                return { lat: point.lat, lng: point.lng }
+            })
+        }
+
+        const out: YandexMapsLatLng[] = [{ ...path[0]! }]
+        for (let i = 1; i < targetCount - 1; i++) {
+            const distanceAlongPath = (totalLength * i) / (targetCount - 1)
+            let traversed = 0
+
+            for (let segmentIndex = 0; segmentIndex < segmentLengths.length; segmentIndex++) {
+                const segmentLength = segmentLengths[segmentIndex]!
+                const segmentStart = path[segmentIndex]!
+                const segmentEnd = path[segmentIndex + 1]!
+                const segmentLimit = traversed + segmentLength
+
+                if (distanceAlongPath <= segmentLimit || segmentIndex === segmentLengths.length - 1) {
+                    const localDistance = distanceAlongPath - traversed
+                    const t = segmentLength > 0 ? localDistance / segmentLength : 0
+                    out.push({
+                        lat: segmentStart.lat + (segmentEnd.lat - segmentStart.lat) * t,
+                        lng: segmentStart.lng + (segmentEnd.lng - segmentStart.lng) * t,
+                    })
+                    break
+                }
+
+                traversed = segmentLimit
+            }
+        }
+        out.push({ ...path[path.length - 1]! })
+        return out
+    }
+
+    function buildPreviewPath(
+        sourcePath: YandexMapsLatLng[],
+        options?: {
+            minPoints?: number
+            maxPoints?: number
+            approxStepMeters?: number
+        },
+    ): YandexMapsLatLng[] {
+        if (sourcePath.length < 2) {
+            return [...sourcePath]
+        }
+
+        const minPoints = Math.max(2, options?.minPoints ?? 12)
+        const maxPoints = Math.max(minPoints, options?.maxPoints ?? 48)
+        const approxStepMeters = Math.max(10, options?.approxStepMeters ?? 120)
+        const distanceMeters = getPathDistanceMeters(sourcePath)
+        const byDistance = Math.round(distanceMeters / approxStepMeters) + 1
+        const targetCount = Math.max(minPoints, Math.min(maxPoints, byDistance))
+
+        return interpolateWaypoints(sourcePath, targetCount)
+    }
+
     /** Преобразование режима для API Яндекса */
     function getTravelModeForAPI(mode: YandexDirectionsTravelMode): string {
         const modeMap: Record<YandexDirectionsTravelMode, string> = {
@@ -499,7 +637,7 @@ export function useYandexMaps() {
     }
 
     function computeWalkingPath(waypoints: YandexMapsLatLng[]): Promise<YandexMapsLatLng[]> {
-        return computeDirectionsPath(waypoints, 'pedestrian')
+        return computeDirectionsPath(waypoints, 'pedestrian').then(result => result.path)
     }
 
     function computeHeading(from: YandexMapsLatLng, to: YandexMapsLatLng): number {
@@ -518,6 +656,9 @@ export function useYandexMaps() {
         createMap,
         createPanorama,
         geocode,
+        reverseGeocode,
+        interpolateWaypoints,
+        buildPreviewPath,
         computeWalkingPath,
         computeDirectionsPath,
         computeHeading,

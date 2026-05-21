@@ -1,7 +1,7 @@
 import type { Walk, User } from '@prisma/client'
 import type { WalkDetails, WalkSummary } from '../../app/types/walk'
 
-type LatLng = { lat: number; lng: number }
+type LatLng = { lat: number; lng: number; label?: string | null }
 
 function toLatLngList(value: unknown): LatLng[] {
   if (!Array.isArray(value)) {
@@ -17,7 +17,15 @@ function toLatLngList(value: unknown): LatLng[] {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
         return null
       }
-      return { lat, lng }
+      const label = (item as { label?: unknown }).label
+      const point: LatLng = {
+        lat,
+        lng,
+      }
+      if (typeof label === 'string' && label.trim()) {
+        point.label = label.trim()
+      }
+      return point
     })
     .filter((v): v is LatLng => v !== null)
 }
@@ -26,6 +34,7 @@ export function toWalkSummary(walk: Walk): WalkSummary {
   const path = toLatLngList(walk.path)
   return {
     id: walk.id,
+    userId: walk.userId,
     title: walk.title,
     city: walk.city,
     description: walk.description,

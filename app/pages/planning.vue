@@ -17,22 +17,25 @@
               v-model:route-name="routeName"
               v-model:description="routeDescription"
               v-model:city-query="cityQuery"
+              :route-selection-hint="routeSelectionHint"
               v-model:theme="theme"
               v-model:pace="pace"
               v-model:time-start="timeStart"
-              v-model:time-end="timeEnd"
+              :time-end="timeEnd"
               v-model:travel-mode-id="travelModeId"
               :cover-preview-url="coverPreviewUrl"
               :waypoints="waypoints"
               :waypoints-summary="waypointsSummary"
               :route-estimate-hint="routeEstimateHint"
               :geocode-error="geocodeError"
-              :disable-actions="isPublishing"
-              :can-save="waypoints.length >= 2"
+              :disable-actions="isPublishing || isBuildingRoute"
+              :can-build-route="waypoints.length >= 2"
+              :can-save="waypoints.length >= 2 && routeDistanceKm > 0"
               @update:cover-file="onCoverFile"
               @remove-waypoint="removeWaypoint"
               @clear-waypoints="clearWaypoints"
               @apply-city="applyCity"
+              @build-route="buildRoute"
               @publish-route="publishRoute"
             />
             <p
@@ -63,10 +66,10 @@
             <div class="planning-page__preview-controls">
               <Controls
                 :is-playing="isPlaying"
-                :has-path="path.length > 0"
-                :can-play="path.length > 0"
-                :can-step-back="currentIndex > 0"
-                :can-step-fwd="currentIndex < path.length - 1"
+                :has-path="previewPath.length > 1"
+                :can-play="previewPath.length > 1"
+                :can-step-back="canStepBack"
+                :can-step-fwd="canStepForward"
                 @play="play"
                 @pause="pause"
                 @next="onNext"
@@ -87,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import type { YandexMapsLatLng, YandexDirectionsTravelMode } from '~/composables/useYandexMaps'
+import type { YandexMapsLatLng, YandexDirectionsTravelMode, YandexWaypoint } from '~/composables/useYandexMaps'
 import Controls from '~/components/planning/Controls.vue'
 import MapView from '~/components/planning/MapView.vue'
 import PlanningFormPanel from '~/components/planning/PlanningFormPanel.vue'
@@ -98,11 +101,15 @@ useHead({
 })
 
 const router = useRouter()
-const { apiKey, load, geocode, computeHeading, getYandex } = useYandexMaps()
+const { apiKey, load, geocode, reverseGeocode, getYandex, buildPreviewPath } = useYandexMaps()
 
 const hasKey = computed(() => !!apiKey.value?.trim())
 
-const mapViewRef = ref<{ centerMap: (p: YandexMapsLatLng, z?: number) => void } | null>(null)
+const mapViewRef = ref<{
+  centerMap: (p: YandexMapsLatLng, z?: number) => void
+  buildAutoRoute: () => Promise<boolean>
+  clearRoute: () => void
+} | null>(null)
 
 const routeName = ref('')
 const routeDescription = ref('')
@@ -111,6 +118,7 @@ const cityLabel = ref('Москва')
 const geocodeError = ref('')
 const routeError = ref('')
 const isPublishing = ref(false)
+const isBuildingRoute = ref(false)
 const theme = ref('')
 const pace = ref('')
 const timeStart = ref('')
@@ -152,15 +160,19 @@ const directionsMode = computed<YandexDirectionsTravelMode>(() => {
       return 'bicycle'
     case 'car':
       return 'car'
-    case 'transit':
-      return 'masstransit'
     default:
       return 'pedestrian'
   }
 })
 
-const waypoints = ref<YandexMapsLatLng[]>([])
+const waypoints = ref<YandexWaypoint[]>([])
 const path = ref<YandexMapsLatLng[]>([])
+const routedDistanceKm = ref(0)
+const routedDurationMinutes = ref(0)
+const previewPath = computed(() => {
+  const sourcePath = path.value.length >= 2 ? path.value : waypoints.value
+  return buildPreviewPath(sourcePath)
+})
 
 const waypointsSummary = computed(() => {
   if (waypoints.value.length === 0) {
@@ -170,41 +182,68 @@ const waypointsSummary = computed(() => {
   return waypoints.value
     .map(
       (p, i) =>
-        `Точка ${i + 1}: ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`,
+        `${i === 0 ? 'Старт' : i === waypoints.value.length - 1 ? 'Финиш' : `Точка ${i + 1}`}: ${p.label || `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`}`,
     )
     .join('\n')
 })
 
 const {
-  currentIndex,
   isPlaying,
   currentPoint,
+  previewHeading,
   play,
   pause,
   stop,
   next,
   prev,
-} = useRoutePlayer(path, { intervalMs: 2500 })
+  canStepForward,
+  canStepBack,
+} = useSmoothRoutePlayer(previewPath, {
+  segmentMoveMs: 3800,
+  dwellMs: 2800,
+  tickMs: 80,
+})
 
 const streetPosition = computed(() => currentPoint.value)
-
-const streetHeading = computed(() => {
-  const pts = path.value
-  if (pts.length < 2) {
-    return 0
-  }
-  const i = Math.min(Math.max(0, currentIndex.value), pts.length - 1)
-  const cur = pts[i]!
-  if (i >= pts.length - 1) {
-    const prevPt = pts[i - 1]!
-    return computeHeading(prevPt, cur)
-  }
-  const nextPt = pts[i + 1]!
-  return computeHeading(cur, nextPt)
-})
+const streetHeading = previewHeading
 
 function onPathUpdate(data: { path: YandexMapsLatLng[]; distanceKm: number; durationMinutes: number }) {
   path.value = data.path
+  routedDistanceKm.value = data.distanceKm
+  routedDurationMinutes.value = data.durationMinutes
+}
+
+function buildSearchQuery() {
+  return cityQuery.value.trim()
+}
+
+let waypointLabelRequestId = 0
+let waypointLabelTimer: ReturnType<typeof setTimeout> | null = null
+
+async function fillWaypointLabels(points: YandexWaypoint[]) {
+  const currentRequestId = ++waypointLabelRequestId
+  const labeled = await Promise.all(
+    points.map(async (point) => ({
+      ...point,
+      label: await reverseGeocode(point),
+    })),
+  )
+  if (currentRequestId !== waypointLabelRequestId) {
+    return
+  }
+  waypoints.value = labeled
+}
+
+function scheduleWaypointLabels() {
+  if (waypointLabelTimer) {
+    clearTimeout(waypointLabelTimer)
+  }
+  waypointLabelTimer = setTimeout(() => {
+    waypointLabelTimer = null
+    void fillWaypointLabels(
+      waypoints.value.map(point => ({ lat: point.lat, lng: point.lng })),
+    )
+  }, 450)
 }
 
 function onNext() {
@@ -255,10 +294,9 @@ function estimateDurationMinutes(distanceKm: number): number {
 
   const modeSpeedKmh: Record<string, number> = {
     walk: 5,
+    roller: 11,
     bike: 15,
-    roller: 13,
     car: 28,
-    transit: 20,
   }
 
   const baseSpeed = modeSpeedKmh[travelModeId.value] ?? 5
@@ -268,10 +306,9 @@ function estimateDurationMinutes(distanceKm: number): number {
   const pureTravelMinutes = (distanceKm / effectiveSpeed) * 60
   const stopBufferByMode: Record<string, number> = {
     walk: 1.15,
-    bike: 1.12,
     roller: 1.1,
+    bike: 1.12,
     car: 1.2,
-    transit: 1.25,
   }
   const modeBuffer = stopBufferByMode[travelModeId.value] ?? 1.15
 
@@ -279,11 +316,78 @@ function estimateDurationMinutes(distanceKm: number): number {
 }
 
 const routeDistanceKm = computed(() => {
+  if (routedDistanceKm.value > 0) {
+    return routedDistanceKm.value
+  }
   const sourcePath = path.value.length >= 2 ? path.value : waypoints.value
   return getRouteDistanceKm(sourcePath)
 })
 
-const estimatedDurationMinutes = computed(() => estimateDurationMinutes(routeDistanceKm.value))
+const estimatedDurationMinutes = computed(() => {
+  if (routedDurationMinutes.value > 0) {
+    return routedDurationMinutes.value
+  }
+  return estimateDurationMinutes(routeDistanceKm.value)
+})
+
+const startPointLabel = computed(() => {
+  const point = waypoints.value[0]
+  if (!point) {
+    return 'выберите старт на карте'
+  }
+  return point.label || `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`
+})
+const endPointLabel = computed(() => {
+  if (waypoints.value.length < 2) {
+    return 'выберите финиш на карте'
+  }
+  const point = waypoints.value[waypoints.value.length - 1]!
+  return point.label || `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`
+})
+
+const routeSelectionHint = computed(() => {
+  if (waypoints.value.length === 0) {
+    return 'Выберите на карте старт маршрута.'
+  }
+  if (waypoints.value.length === 1) {
+    return `Старт: ${startPointLabel.value}. Теперь выберите финиш на карте.`
+  }
+  return `Старт: ${startPointLabel.value}. Финиш: ${endPointLabel.value}.`
+})
+
+function addMinutesToTime(time: string, minutesToAdd: number): string {
+  const match = /^(\d{2}):(\d{2})$/.exec(time)
+  if (!match) {
+    return ''
+  }
+
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return ''
+  }
+
+  const totalMinutes = ((hours * 60 + minutes + minutesToAdd) % 1440 + 1440) % 1440
+  const nextHours = String(Math.floor(totalMinutes / 60)).padStart(2, '0')
+  const nextMinutes = String(totalMinutes % 60).padStart(2, '0')
+  return `${nextHours}:${nextMinutes}`
+}
+
+watch(
+  [timeStart, estimatedDurationMinutes],
+  () => {
+    if (!timeStart.value) {
+      timeEnd.value = ''
+      return
+    }
+
+    timeEnd.value = addMinutesToTime(
+      timeStart.value,
+      Math.max(estimatedDurationMinutes.value, 0),
+    )
+  },
+  { immediate: true },
+)
 
 const routeEstimateHint = computed(() => {
   if (waypoints.value.length < 2 || routeDistanceKm.value <= 0) {
@@ -299,18 +403,22 @@ function removeWaypoint(index: number) {
   const next = [...waypoints.value]
   next.splice(index, 1)
   waypoints.value = next
+  scheduleWaypointLabels()
 }
 
 function clearWaypoints() {
+  mapViewRef.value?.clearRoute()
   waypoints.value = []
   path.value = []
+  routedDistanceKm.value = 0
+  routedDurationMinutes.value = 0
 }
 
 async function applyCity() {
   geocodeError.value = ''
-  const q = cityQuery.value.trim()
+  const q = buildSearchQuery()
   if (!q) {
-    geocodeError.value = 'Введите название города'
+    geocodeError.value = 'Введите город или адрес для поиска'
     return
   }
 
@@ -322,7 +430,7 @@ async function applyCity() {
 
   try {
     const loc = await geocode(q)
-    cityLabel.value = q
+    cityLabel.value = cityQuery.value.trim() || q
 
     if (mapViewRef.value?.centerMap) {
       mapViewRef.value.centerMap(loc, 12)
@@ -335,15 +443,61 @@ async function applyCity() {
       geocodeError.value = '⚠️ Панорамы могут быть недоступны в этом городе'
     }
   } catch (e) {
-    geocodeError.value = e instanceof Error ? e.message : 'Не удалось найти город'
+    geocodeError.value = e instanceof Error ? e.message : 'Не удалось найти локацию'
   }
 }
+
+async function buildRoute() {
+  routeError.value = ''
+  geocodeError.value = ''
+
+  if (waypoints.value.length < 2) {
+    routeError.value = 'Сначала выберите на карте минимум две точки маршрута'
+    return
+  }
+
+  if (!mapViewRef.value?.buildAutoRoute) {
+    routeError.value = 'Карта ещё не готова. Попробуйте через секунду.'
+    return
+  }
+
+  isBuildingRoute.value = true
+  try {
+    const ok = await mapViewRef.value.buildAutoRoute()
+    if (!ok) {
+      routeError.value = 'Не удалось построить маршрут по дорогам'
+      return
+    }
+    geocodeError.value = ''
+  } catch (e) {
+    routeError.value = e instanceof Error ? e.message : 'Не удалось построить маршрут по дорогам'
+  } finally {
+    isBuildingRoute.value = false
+  }
+}
+
+watch(
+  waypoints,
+  (next, prev) => {
+    if (next.length === 0) {
+      return
+    }
+    const coordsChanged = next.length !== prev.length
+      || next.some((point, index) => point.lat !== prev[index]?.lat || point.lng !== prev[index]?.lng)
+    if (coordsChanged) {
+      scheduleWaypointLabels()
+    }
+  },
+  { deep: true },
+)
 
 async function publishRoute() {
   routeError.value = ''
   isPublishing.value = true
 
-  await applyCity()
+  if (cityQuery.value.trim()) {
+    await applyCity()
+  }
 
   if (!routeName.value.trim()) {
     routeError.value = 'Укажите название маршрута'
@@ -355,8 +509,14 @@ async function publishRoute() {
     isPublishing.value = false
     return
   }
+  const routePath = path.value.length >= 2 ? path.value : waypoints.value
+  if (routeDistanceKm.value <= 0 || routePath.length < 2) {
+    routeError.value = 'Нужно минимум 2 точки маршрута'
+    isPublishing.value = false
+    return
+  }
   if (!cityLabel.value.trim()) {
-    routeError.value = 'Выберите город и нажмите «Найти»'
+    routeError.value = 'Укажите город или адрес маршрута'
     isPublishing.value = false
     return
   }
@@ -367,6 +527,10 @@ async function publishRoute() {
     const mins = String(now.getMinutes()).padStart(2, '0')
     timeStart.value = `${hours}:${mins}`
   }
+  timeEnd.value = addMinutesToTime(
+    timeStart.value,
+    Math.max(estimatedDurationMinutes.value, 0),
+  )
 
   try {
     let coverImage: string | null = null
@@ -397,7 +561,7 @@ async function publishRoute() {
         distanceKm: routeDistanceKm.value,
         durationMinutes: estimatedDurationMinutes.value,
         coverImage,
-        waypoints: waypoints.value,
+        waypoints: waypoints.value.map(({ lat, lng, label }) => ({ lat, lng, label })),
         path: path.value.length >= 2 ? path.value : waypoints.value,
       },
     })
@@ -420,30 +584,28 @@ async function publishRoute() {
 <style scoped>
 .planning-page {
   box-sizing: border-box;
-  max-width: 1120px;
+  width: min(100%, 1180px);
   margin: 0 auto;
-  padding: 1.25rem 1rem 2.75rem;
+  padding: 1rem 0.875rem 2.25rem;
   min-height: 0;
   flex: 1;
   font-family: 'Inter', system-ui, sans-serif;
   color: #1a1a1a;
- 
-  border-radius: 0;
 }
 
 .planning-page__shell {
   display: flex;
   flex-direction: column;
-  gap: 1.35rem;
+  gap: 1rem;
 }
 
 .planning-page__card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 1.75rem 2rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
   align-items: stretch;
-  padding: clamp(1.25rem, 3vw, 2rem);
-  border-radius: 22px;
+  padding: 1rem;
+  border-radius: 20px;
   background: #fff;
   box-shadow:
     0 4px 24px rgba(15, 40, 90, 0.07),
@@ -453,22 +615,26 @@ async function publishRoute() {
 
 .planning-page__map-col {
   min-width: 0;
-  min-height: 420px;
   display: flex;
+  align-self: stretch;
+  height: 100%;
+  min-height: 19rem;
 }
 
 .planning-page__map-col :deep(.map-view) {
   flex: 1;
-  min-height: 420px;
+  height: 100%;
+  min-height: 19rem;
 }
 
 .planning-page__map-col :deep(.map-view__canvas) {
-  min-height: 420px;
+  height: 100%;
+  min-height: 19rem;
   border-radius: 16px;
 }
 
 .planning-page__map-col :deep(.map-view__hint) {
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   color: #777;
 }
 
@@ -478,7 +644,7 @@ async function publishRoute() {
   border-radius: 12px;
   background: #f0f4fc;
   border: 1px solid #d8e2f5;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   line-height: 1.45;
   color: #3d4d66;
 }
@@ -503,7 +669,7 @@ async function publishRoute() {
   grid-template-columns: 1fr;
   gap: 0;
   align-items: stretch;
-  min-height: 500px;
+  min-height: 21rem;
   border-radius: 16px;
   overflow: hidden;
   background: #000;
@@ -514,42 +680,43 @@ async function publishRoute() {
   width: 100%;
   height: 100%;
   border-radius: 0;
-  min-height: 500px;
+  min-height: 21rem;
 }
 
 .planning-page__preview :deep(.street-view__canvas) {
   width: 100%;
   height: 100%;
   border-radius: 0;
-  min-height: 500px;
+  min-height: 21rem;
   background: #1a1f2e;
 }
 
 .planning-page__preview-controls {
   position: absolute;
-  bottom: 1.5rem;
-  left: 1.5rem;
+  right: 0.875rem;
+  bottom: 0.875rem;
+  left: 0.875rem;
   z-index: 10;
 }
 
 .planning-page__warn {
-  padding: 1.25rem 1rem;
+  padding: 1rem;
   border-radius: 14px;
   background: #fff8e6;
   border: 1px solid #f0e0a8;
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
   line-height: 1.5;
   color: #5c4a00;
 }
 
 .planning-page__error {
   margin: 0 0 1rem;
-  padding: 0.9rem 1rem;
+  padding: 0.95rem 1rem;
   border-radius: 14px;
   background: #fff1f1;
   border: 1px solid #f2c2c2;
   color: #9b2424;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
 }
 
 .planning-page__warn code {
@@ -564,40 +731,86 @@ async function publishRoute() {
   padding: 2.5rem 1rem;
   text-align: center;
   color: #666;
+  font-size: 0.9375rem;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 480px) {
   .planning-page__card {
-    grid-template-columns: 1fr;
+    padding: 0.875rem;
+  }
+
+  .planning-page__preview-controls :deep(.plan-controls) {
+    width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .planning-page {
+    padding: 1.25rem 1.25rem 2.75rem;
+  }
+
+  .planning-page__shell {
+    gap: 1.25rem;
+  }
+
+  .planning-page__card {
+    padding: 1.25rem;
+    gap: 1.25rem;
+  }
+
+  .planning-page__map-col,
+  .planning-page__map-col :deep(.map-view),
+  .planning-page__map-col :deep(.map-view__canvas) {
+    min-height: 22rem;
+  }
+
+  .planning-page__preview,
+  .planning-page__preview :deep(.street-view),
+  .planning-page__preview :deep(.street-view__canvas) {
+    min-height: 25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .planning-page__card {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 1.5rem;
+    padding: clamp(1.25rem, 2vw, 2rem);
   }
 
   .planning-page__map-col {
-    min-height: 340px;
+    min-height: 26rem;
   }
 
+  .planning-page__map-col :deep(.map-view),
   .planning-page__map-col :deep(.map-view__canvas) {
-    min-height: 340px;
+    min-height: 26rem;
   }
 
   .planning-page__preview {
-    grid-template-columns: 1fr;
-    min-height: 420px;
+    min-height: 31.25rem;
   }
 
+  .planning-page__preview :deep(.street-view),
   .planning-page__preview :deep(.street-view__canvas) {
-    min-height: 420px;
+    min-height: 31.25rem;
   }
 
   .planning-page__preview-controls {
-    position: absolute;
-    bottom: 1rem;
-    left: 1rem;
-    width: auto;
+    right: auto;
+    bottom: 1.5rem;
+    left: 1.5rem;
   }
 
   .planning-page__preview-controls :deep(.plan-controls) {
     width: auto;
     justify-content: flex-start;
+  }
+}
+
+@media (min-width: 1280px) {
+  .planning-page__card {
+    gap: 1.75rem 2rem;
   }
 }
 </style>

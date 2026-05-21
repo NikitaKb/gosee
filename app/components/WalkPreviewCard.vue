@@ -38,6 +38,49 @@
       <p class="walk-card__type">
         {{ display.typeLabel }}
       </p>
+      <p
+        v-if="walk?.userId && walk?.authorDisplayName"
+        class="walk-card__author"
+      >
+        <NuxtLink
+          :to="`/users/${walk.userId}`"
+          class="walk-card__author-link"
+        >
+          {{ walk.authorDisplayName }}
+        </NuxtLink>
+      </p>
+      <div
+        v-if="communityMode && walk"
+        class="walk-card__rating-block"
+      >
+        <div class="walk-card__rating-summary">
+          <span class="walk-card__rating-avg">★ {{ avgRatingLabel }}</span>
+          <span
+            v-if="(walk.ratingsCount ?? 0) > 0"
+            class="walk-card__rating-count"
+          >({{ walk.ratingsCount }})</span>
+        </div>
+        <div
+          v-if="showRatePicker"
+          class="walk-card__rating-pick"
+          role="group"
+          aria-label="Ваша оценка"
+        >
+          <button
+            v-for="n in 5"
+            :key="n"
+            type="button"
+            class="walk-card__star-btn"
+            :class="{ 'walk-card__star-btn--active': (walk.myRating ?? 0) >= n }"
+            :disabled="ratingDisabled"
+            :aria-pressed="(walk.myRating ?? 0) >= n"
+            :aria-label="`Оценить на ${n}`"
+            @click.stop="onSetRating(n)"
+          >
+            ★
+          </button>
+        </div>
+      </div>
       <div class="walk-card__stats">
         <span class="walk-card__stat">
           <svg
@@ -130,9 +173,13 @@
           Подробнее
         </button>
         <button
+          v-if="showFavoriteButton"
           type="button"
           class="walk-card__heart"
-          :aria-label="variant === 'favorite' ? 'В избранном' : 'В избранное'"
+          :class="{ 'walk-card__heart--on': heartFilled }"
+          :disabled="favoriteDisabled"
+          :aria-label="heartFilled ? 'В избранном' : 'В избранное'"
+          @click.stop="onHeartClick"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -157,22 +204,86 @@ import { computed, ref, watch } from 'vue'
 
 import type { WalkSummary } from '~/types/walk'
 
-const props = defineProps<{
-  variant: 'walk' | 'favorite'
-  /** Реальная прогулка из API (приоритет над demo). */
-  walk?: WalkSummary | null
-  /** Пример карточки, если walk не задан (например, избранное без списка). */
-  demo?: {
-    title: string
-    typeLabel: string
-    rating: string
-    distance: string
-    place: string
-    description: string
-    image: string
-    images?: readonly string[]
-  }
+const props = withDefaults(
+  defineProps<{
+    variant: 'walk' | 'favorite'
+    /** Реальная прогулка из API (приоритет над demo). */
+    walk?: WalkSummary | null
+    /** Пример карточки, если walk не задан (например, избранное без списка). */
+    demo?: {
+      title: string
+      typeLabel: string
+      rating: string
+      distance: string
+      place: string
+      description: string
+      image: string
+      images?: readonly string[]
+    }
+    /** Состояние избранного для `walk` (или перекрывает `variant` для сердца). */
+    favorited?: boolean
+    /** Блокировка кнопки при запросе. */
+    favoriteDisabled?: boolean
+    /** Скрыть кнопку избранного (например, демо без интеракции). */
+    showFavoriteButton?: boolean
+    /** Блок рейтинга для страницы «Сообщество». */
+    communityMode?: boolean
+    /** Запрос оценки в процессе. */
+    ratingDisabled?: boolean
+  }>(),
+  {
+    walk: null,
+    favorited: undefined,
+    favoriteDisabled: false,
+    showFavoriteButton: true,
+    communityMode: false,
+    ratingDisabled: false,
+  },
+)
+
+const emit = defineEmits<{
+  toggleFavorite: [walkId: string]
+  setRating: [walkId: string, value: number]
 }>()
+
+const { user: authUser } = useAuth()
+
+const showRatePicker = computed(() => {
+  const w = props.walk
+  if (!props.communityMode || !w?.userId || !authUser.value) {
+    return false
+  }
+  return w.userId !== authUser.value.id
+})
+
+const avgRatingLabel = computed(() => {
+  const v = props.walk?.avgRating
+  if (v == null || Number.isNaN(v)) {
+    return '—'
+  }
+  return v.toFixed(1)
+})
+
+function onSetRating(n: number) {
+  if (!props.walk?.id || props.ratingDisabled) {
+    return
+  }
+  emit('setRating', props.walk.id, n)
+}
+
+const heartFilled = computed(() => {
+  if (props.walk) {
+    return props.favorited === true || props.walk.favorited === true
+  }
+  return props.variant === 'favorite'
+})
+
+function onHeartClick() {
+  if (!props.walk?.id || props.favoriteDisabled) {
+    return
+  }
+  emit('toggleFavorite', props.walk.id)
+}
 
 const PLACEHOLDER_IMAGE
   = 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=560&h=360&fit=crop&q=80'
@@ -376,6 +487,84 @@ watch(imageList, (list) => {
   color: #8e8e8e;
 }
 
+.walk-card__author {
+  margin: -0.35rem 0 0.55rem;
+  font-size: 0.875rem;
+}
+
+.walk-card__author-link {
+  color: #2b65ff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.walk-card__author-link:hover {
+  text-decoration: underline;
+}
+
+.walk-card__rating-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 0.65rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 12px;
+  background: #f5f7fa;
+  border: 1px solid #e8ecf2;
+}
+
+.walk-card__rating-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  color: #5a6578;
+}
+
+.walk-card__rating-avg {
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.walk-card__rating-count {
+  color: #8e8e8e;
+}
+
+.walk-card__rating-pick {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+
+.walk-card__star-btn {
+  padding: 0.15rem 0.2rem;
+  border: none;
+  background: transparent;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: #c5ced9;
+  cursor: pointer;
+  border-radius: 6px;
+  transition:
+    color 0.12s ease,
+    transform 0.12s ease;
+}
+
+.walk-card__star-btn:hover:not(:disabled) {
+  color: #ffb300;
+  transform: scale(1.08);
+}
+
+.walk-card__star-btn--active {
+  color: #ffb300;
+}
+
+.walk-card__star-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
 .walk-card__stats {
   display: flex;
   flex-wrap: wrap;
@@ -455,6 +644,20 @@ watch(imageList, (list) => {
 
 .walk-card__heart:hover {
   background: #d8e4ff;
+}
+
+.walk-card__heart--on {
+  background: #ffe8ef;
+  color: #e91e63;
+}
+
+.walk-card__heart--on:hover {
+  background: #ffd6e5;
+}
+
+.walk-card__heart:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 @media (max-width: 640px) {

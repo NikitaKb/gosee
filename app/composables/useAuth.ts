@@ -10,8 +10,9 @@ export function useAuth() {
 
   async function fetchUser() {
     try {
-      const fetcher = import.meta.server ? useRequestFetch() : $fetch
-      const res = await fetcher<{ user: AuthUser | null }>('/api/auth/me')
+      const res = import.meta.server
+        ? await useRequestFetch()<{ user: AuthUser | null }>('/api/auth/me')
+        : await $fetch<{ user: AuthUser | null }>('/api/auth/me')
       user.value = res.user
     }
     catch {

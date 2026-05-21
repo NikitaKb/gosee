@@ -4,6 +4,7 @@ import { readMultipartFormData } from 'h3'
 import prisma from '../../utils/prisma'
 import { requireSessionUser } from '../../utils/session-user'
 import { toUserProfile } from '../../utils/profile-map'
+import { walkSummariesWithFavoriteFlags } from '../../utils/profile-walks'
 
 const MAX_BYTES = 2 * 1024 * 1024
 const ALLOWED_TYPES = new Map([
@@ -47,5 +48,13 @@ export default defineEventHandler(async (event) => {
     where: { id: user.id },
     data: { avatar: publicUrl },
   })
-  return { profile: toUserProfile(updated) }
+  const [walks, favoritesCount] = await Promise.all([
+    prisma.walk.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.favorite.count({ where: { userId: user.id } }),
+  ])
+  const summaries = await walkSummariesWithFavoriteFlags(user.id, walks)
+  return { profile: toUserProfile(updated, summaries, favoritesCount) }
 })

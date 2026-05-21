@@ -3,6 +3,9 @@ const route = useRoute()
 
 /** Совпадает с путями в коллекции Content (`/`, `/about`, без лишнего `/` в конце). */
 function contentPath(path: string) {
+  if (!path || path === '/') {
+    return '/index'
+  }
   if (path.length > 1 && path.endsWith('/')) {
     return path.replace(/\/+$/, '') || '/'
   }

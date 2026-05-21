@@ -15,15 +15,19 @@
     <ProfileUser
       v-else-if="profile"
       :profile="profile"
+      :favorite-walks="favoriteWalks"
       @updated="onProfileUpdated"
+      @favorites-updated="onFavoritesUpdated"
     />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { UserProfile } from '~/types/profile'
+import type { WalkSummary } from '~/types/walk'
 
 const profile = ref<UserProfile | null>(null)
+const favoriteWalks = ref<WalkSummary[]>([])
 const pending = ref(true)
 const fetchError = ref('')
 
@@ -31,13 +35,40 @@ function onProfileUpdated(next: UserProfile) {
   profile.value = next
 }
 
-const fetchProfile = import.meta.server ? useRequestFetch() : $fetch
+function fetchProfile<T>(url: string) {
+  return import.meta.server
+    ? useRequestFetch()<T>(url, { credentials: 'include' })
+    : $fetch<T>(url, { credentials: 'include' })
+}
+
+async function loadFavorites() {
+  try {
+    const res = await fetchProfile<{ walks: WalkSummary[] }>('/api/favorites')
+    favoriteWalks.value = res.walks
+  }
+  catch {
+    favoriteWalks.value = []
+  }
+}
+
+async function refreshProfileFromServer() {
+  try {
+    const res = await fetchProfile<{ profile: UserProfile }>('/api/profile/me')
+    profile.value = res.profile
+  }
+  catch {
+    /* оставляем текущее состояние */
+  }
+}
+
+async function onFavoritesUpdated() {
+  await Promise.all([loadFavorites(), refreshProfileFromServer()])
+}
 
 try {
-  const res = await fetchProfile<{ profile: UserProfile }>('/api/profile/me', {
-    credentials: 'include',
-  })
+  const res = await fetchProfile<{ profile: UserProfile }>('/api/profile/me')
   profile.value = res.profile
+  await loadFavorites()
 }
 catch (e: unknown) {
   const err = e as { statusCode?: number; status?: number; statusMessage?: string }

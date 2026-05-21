@@ -2,7 +2,10 @@
   <div class="profile-user">
     <section class="profile-hero">
       <div class="profile-hero__main">
-        <label class="profile-hero__avatar-label">
+        <label
+          v-if="isSelf"
+          class="profile-hero__avatar-label"
+        >
           <input
             type="file"
             class="profile-hero__avatar-input"
@@ -34,8 +37,29 @@
               <span class="profile-hero__avatar-spinner" />
             </span>
           </span>
-          
         </label>
+        <div
+          v-else
+          class="profile-hero__avatar-static"
+        >
+          <span class="profile-hero__avatar-wrap">
+            <img
+              v-if="profile.avatar"
+              :src="profile.avatar"
+              alt=""
+              class="profile-hero__avatar"
+              width="128"
+              height="128"
+            >
+            <div
+              v-else
+              class="profile-hero__avatar profile-hero__avatar--placeholder"
+              aria-hidden="true"
+            >
+              {{ initials }}
+            </div>
+          </span>
+        </div>
         <div class="profile-hero__body">
           <div class="profile-hero__text">
           <h1 class="profile-hero__name">
@@ -43,6 +67,7 @@
           </h1>
           <div class="profile-hero__bio-wrap">
             <textarea
+              v-if="isSelf"
               id="profile-bio-inline"
               v-model="bioDraft"
               class="profile-hero__bio-input"
@@ -54,9 +79,18 @@
               @input="heroError = ''"
               @blur="saveBioIfChanged"
             />
+            <p
+              v-else
+              class="profile-hero__bio-static"
+            >
+              {{ publicBioText }}
+            </p>
           </div>
           <div class="profile-hero__meta">
-            <label class="profile-hero__meta-item profile-hero__city-row">
+            <label
+              v-if="isSelf"
+              class="profile-hero__meta-item profile-hero__city-row"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="18"
@@ -93,6 +127,29 @@
                 </option>
               </select>
             </label>
+            <span
+              v-else
+              class="profile-hero__meta-item profile-hero__city-row"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle
+                  cx="12"
+                  cy="10"
+                  r="3"
+                />
+              </svg>
+              {{ cityReadonly }}
+            </span>
             <span class="profile-hero__meta-item">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -143,6 +200,7 @@
           </p>
           </div>
           <button
+            v-if="isSelf"
             type="button"
             class="profile-hero__logout"
             aria-label="Выйти"
@@ -170,12 +228,32 @@
               />
             </svg>
           </button>
+          <template v-else>
+            <button
+              v-if="authUser"
+              type="button"
+              class="profile-hero__follow"
+              :disabled="followDisabled"
+              :aria-label="isFollowing ? 'Отписаться' : 'Подписаться'"
+              @click="emit('followToggle')"
+            >
+              {{ isFollowing ? 'Отписаться' : 'Подписаться' }}
+            </button>
+            <NuxtLink
+              v-else
+              to="/login"
+              class="profile-hero__follow profile-hero__follow--link"
+            >
+              Войти
+            </NuxtLink>
+          </template>
         </div>
       </div>
     </section>
 
     <section
       class="profile-stats"
+      :class="{ 'profile-stats--three': !isSelf }"
       aria-label="Статистика"
     >
       <article
@@ -198,7 +276,10 @@
       </article>
     </section>
 
-    <div class="profile-tabs-wrap">
+    <div
+      v-if="isSelf"
+      class="profile-tabs-wrap"
+    >
       <div
         class="profile-tabs"
         role="tablist"
@@ -267,19 +348,36 @@
         class="profile-panel profile-panel--flush"
         role="tabpanel"
       >
-        <p class="profile-panel__caption">
-          <template v-if="profile.favoritesCount === 0">
-            Пока нет избранного в базе — ниже пример карточки.
-          </template>
-          <template v-else>
-            В избранном {{ formatInt(profile.favoritesCount) }}
-            {{ pluralFavorites(profile.favoritesCount) }}. Пример оформления:
-          </template>
-        </p>
-        <WalkPreviewCard
-          variant="favorite"
-          :demo="demoMoscow"
-        />
+        <template v-if="favoriteWalks.length === 0">
+          <p class="profile-panel__caption">
+            Пока нет избранных маршрутов. Найдите прогулки в
+            <NuxtLink
+              to="/community"
+              class="profile-panel__link"
+            >сообществе</NuxtLink>
+            и нажмите на сердце на карточке.
+          </p>
+        </template>
+        <template v-else>
+          <p class="profile-panel__caption">
+            Избранные маршруты ({{ formatInt(favoriteWalks.length) }}):
+          </p>
+          <div
+            class="profile-walks-list"
+            role="list"
+          >
+            <WalkPreviewCard
+              v-for="w in favoriteWalks"
+              :key="w.id"
+              variant="walk"
+              :walk="w"
+              :favorited="true"
+              :favorite-disabled="pendingFavoriteId === w.id"
+              role="listitem"
+              @toggle-favorite="onToggleFavoriteWalk"
+            />
+          </div>
+        </template>
       </div>
 
       <div
@@ -309,6 +407,44 @@
               :key="w.id"
               variant="walk"
               :walk="w"
+              :favorited="w.favorited === true"
+              :favorite-disabled="pendingFavoriteId === w.id"
+              role="listitem"
+              @toggle-favorite="onToggleFavoriteWalk"
+            />
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <div
+      v-else
+      class="profile-tabs-wrap"
+    >
+      <div
+        class="profile-panel profile-panel--flush"
+        role="region"
+        :aria-label="`Прогулки ${publicWalksTitle}`"
+      >
+        <template v-if="profile.walks.length === 0">
+          <p class="profile-panel__caption">
+            У пользователя пока нет прогулок.
+          </p>
+        </template>
+        <template v-else>
+          <p class="profile-panel__caption">
+            Прогулки {{ publicWalksTitle }} ({{ formatInt(profile.walks.length) }}):
+          </p>
+          <div
+            class="profile-walks-list"
+            role="list"
+          >
+            <WalkPreviewCard
+              v-for="w in profile.walks"
+              :key="w.id"
+              variant="walk"
+              :walk="w"
+              :show-favorite-button="false"
               role="listitem"
             />
           </div>
@@ -320,15 +456,91 @@
 
 <script setup lang="ts">
 import type { UserProfile } from '~/types/profile'
+import type { WalkSummary } from '~/types/walk'
 import { computed, h, ref, watch } from 'vue'
 
-const props = defineProps<{
-  profile: UserProfile
-}>()
+const props = withDefaults(
+  defineProps<{
+    profile: UserProfile
+    favoriteWalks: WalkSummary[]
+    mode?: 'self' | 'public'
+    isFollowing?: boolean
+    followDisabled?: boolean
+  }>(),
+  {
+    mode: 'self',
+    isFollowing: false,
+    followDisabled: false,
+  },
+)
 
 const emit = defineEmits<{
   updated: [profile: UserProfile]
+  favoritesUpdated: []
+  followToggle: []
 }>()
+
+const { user: authUser } = useAuth()
+
+const isSelf = computed(() => props.mode === 'self')
+
+const publicWalksTitle = computed(() => {
+  const n = props.profile.nickname?.trim()
+  return n || props.profile.name
+})
+
+const publicBioText = computed(() => {
+  const t = props.profile.profileDescription?.trim()
+  return t || 'Пользователь пока не добавил описание.'
+})
+
+const cityReadonly = computed(() => {
+  const c = props.profile.city?.trim()
+  return c || 'Город не указан'
+})
+
+const pendingFavoriteId = ref<string | null>(null)
+
+async function onToggleFavoriteWalk(walkId: string) {
+  const fromProfile = props.profile.walks.find(w => w.id === walkId)
+  const fromFavorites = props.favoriteWalks.find(w => w.id === walkId)
+  const cur = fromProfile ?? fromFavorites
+  if (!cur) {
+    return
+  }
+  const nextFav = !cur.favorited
+  pendingFavoriteId.value = walkId
+  try {
+    if (nextFav) {
+      await $fetch('/api/favorite', {
+        method: 'POST',
+        body: { walkId },
+        credentials: 'include',
+      })
+    }
+    else {
+      await $fetch('/api/favorite', {
+        method: 'DELETE',
+        query: { walkId },
+        credentials: 'include',
+      })
+    }
+    emit('favoritesUpdated')
+  }
+  catch (e: unknown) {
+    const err = e as { statusCode?: number; status?: number }
+    const code = err.statusCode ?? err.status
+    if (code === 401) {
+      await navigateTo('/login')
+    }
+    else if (code === 409 && nextFav) {
+      emit('favoritesUpdated')
+    }
+  }
+  finally {
+    pendingFavoriteId.value = null
+  }
+}
 
 const { logout } = useAuth()
 
@@ -484,23 +696,6 @@ async function onAvatarFileChange(ev: Event) {
   }
 }
 
-const demoMoscow = {
-  title: 'Великая Москва',
-  typeLabel: 'Пешая прогулка',
-  rating: '4.9',
-  distance: '15 км',
-  place: 'Красная площадь',
-  description:
-    'Почувствуйте невероятную энергетику столицы, где современные небоскребы соседствуют с древними соборами.',
-  image:
-    'https://images.unsplash.com/photo-1519677100203-a0e668c92439?w=560&h=360&fit=crop&q=80',
-  images: [
-    'https://images.unsplash.com/photo-1519677100203-a0e668c92439?w=560&h=360&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1520106212299-d99c443e4568?w=560&h=360&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=560&h=360&fit=crop&q=80',
-  ],
-} as const
-
 const joinedLabel = computed(() => {
   const d = new Date(props.profile.createdAt)
   return new Intl.DateTimeFormat('ru-RU', {
@@ -525,21 +720,6 @@ function formatInt(n: number): string {
 
 function formatRating(n: number): string {
   return n.toFixed(1)
-}
-
-function pluralFavorites(n: number): string {
-  const m10 = n % 10
-  const m100 = n % 100
-  if (m100 >= 11 && m100 <= 14) {
-    return 'объектов'
-  }
-  if (m10 === 1) {
-    return 'объект'
-  }
-  if (m10 >= 2 && m10 <= 4) {
-    return 'объекта'
-  }
-  return 'объектов'
 }
 
 const IconUsers = () =>
@@ -610,32 +790,38 @@ const IconHeart = () =>
     [h('path', { d: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z' })],
   )
 
-const statCards = computed(() => [
-  {
-    id: 'followers',
-    label: 'Подписчики',
-    value: formatInt(props.profile.followersCount),
-    icon: IconUsers,
-  },
-  {
-    id: 'walks',
-    label: 'Прогулки',
-    value: formatInt(props.profile.walksCount),
-    icon: IconWalk,
-  },
-  {
-    id: 'rating',
-    label: 'Рейтинг',
-    value: formatRating(props.profile.rating),
-    icon: IconStar,
-  },
-  {
-    id: 'favorites',
-    label: 'Избранное',
-    value: formatInt(props.profile.favoritesCount),
-    icon: IconHeart,
-  },
-])
+const statCards = computed(() => {
+  const cards = [
+    {
+      id: 'followers',
+      label: 'Подписчики',
+      value: formatInt(props.profile.followersCount),
+      icon: IconUsers,
+    },
+    {
+      id: 'walks',
+      label: 'Прогулки',
+      value: formatInt(props.profile.walksCount),
+      icon: IconWalk,
+    },
+    {
+      id: 'rating',
+      label: 'Рейтинг',
+      value: formatRating(props.profile.rating),
+      icon: IconStar,
+    },
+    {
+      id: 'favorites',
+      label: 'Избранное',
+      value: formatInt(props.profile.favoritesCount),
+      icon: IconHeart,
+    },
+  ]
+  if (props.mode === 'public') {
+    return cards.filter(c => c.id !== 'favorites')
+  }
+  return cards
+})
 </script>
 
 <style scoped>
@@ -686,10 +872,65 @@ const statCards = computed(() => [
   border-radius: 9999px;
 }
 
+.profile-hero__avatar-static {
+  flex-shrink: 0;
+}
+
 .profile-hero__avatar-label:focus-within .profile-hero__avatar,
 .profile-hero__avatar-label:hover .profile-hero__avatar,
 .profile-hero__avatar-label:hover .profile-hero__avatar--placeholder {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.85);
+}
+
+.profile-hero__bio-static {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.98);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  min-height: 4.5rem;
+}
+
+.profile-hero__follow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 1.15rem;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--pu-blue);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.profile-hero__follow:hover:not(:disabled) {
+  background: #fff;
+}
+
+.profile-hero__follow:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.profile-hero__follow--link {
+  box-sizing: border-box;
+}
+
+.profile-hero__follow:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45);
 }
 
 .profile-hero__avatar-input {
@@ -915,8 +1156,16 @@ const statCards = computed(() => [
   margin-top: 1.35rem;
 }
 
+.profile-stats--three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 @media (max-width: 900px) {
   .profile-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .profile-stats--three {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -924,6 +1173,32 @@ const statCards = computed(() => [
 @media (max-width: 480px) {
   .profile-stats {
     grid-template-columns: 1fr;
+  }
+
+  .profile-stat-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+  }
+
+  .profile-stat-card__icon {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 0;
+  }
+
+  .profile-stat-card__label {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.3;
+  }
+
+  .profile-stat-card__value {
+    margin: 0;
+    font-size: 1.15rem;
+    white-space: nowrap;
   }
 }
 

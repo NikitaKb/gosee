@@ -244,7 +244,7 @@ export function useGoogleMaps() {
   }
 
   function computeWalkingPath(waypoints: MapsLatLng[]): Promise<MapsLatLng[]> {
-    return computeDirectionsPath(waypoints, 'WALKING')
+    return computeDirectionsPath(waypoints, 'WALKING').then(result => result.path)
   }
 
   function computeHeading(from: MapsLatLng, to: MapsLatLng): number {

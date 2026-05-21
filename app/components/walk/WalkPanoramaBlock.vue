@@ -7,10 +7,10 @@
     <div class="walk-panorama__controls">
       <Controls
         :is-playing="isPlaying"
-        :has-path="path.length > 0"
-        :can-play="path.length > 0"
-        :can-step-back="currentIndex > 0"
-        :can-step-fwd="currentIndex < path.length - 1"
+        :has-path="pathRef.length > 1"
+        :can-play="pathRef.length > 1"
+        :can-step-back="canStepBack"
+        :can-step-fwd="canStepForward"
         @play="play"
         @pause="pause"
         @next="next"
@@ -30,37 +30,28 @@ const props = defineProps<{
   path: YandexMapsLatLng[]
 }>()
 
-const pathRef = toRef(props, 'path')
-
-const { computeHeading } = useYandexMaps()
+const { buildPreviewPath } = useYandexMaps()
+const pathRef = computed(() => buildPreviewPath(props.path))
 
 const {
-  currentIndex,
   isPlaying,
   currentPoint,
+  previewHeading,
   play,
   pause,
   stop,
   next,
   prev,
-} = useRoutePlayer(pathRef, { intervalMs: 2500 })
+  canStepForward,
+  canStepBack,
+} = useSmoothRoutePlayer(pathRef, {
+  segmentMoveMs: 3800,
+  dwellMs: 2800,
+  tickMs: 80,
+})
 
 const streetPosition = computed(() => currentPoint.value)
-
-const streetHeading = computed(() => {
-  const pts = props.path
-  if (pts.length < 2) {
-    return 0
-  }
-  const i = Math.min(Math.max(0, currentIndex.value), pts.length - 1)
-  const cur = pts[i]!
-  if (i >= pts.length - 1) {
-    const prevPt = pts[i - 1]!
-    return computeHeading(prevPt, cur)
-  }
-  const nextPt = pts[i + 1]!
-  return computeHeading(cur, nextPt)
-})
+const streetHeading = previewHeading
 </script>
 
 <style scoped>
@@ -99,15 +90,31 @@ const streetHeading = computed(() => {
 }
 
 @media (max-width: 900px) {
+  .walk-panorama {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: visible;
+    background: transparent;
+  }
+
+  .walk-panorama :deep(.street-view),
+  .walk-panorama :deep(.street-view__canvas) {
+    min-height: 280px;
+    border-radius: 16px;
+  }
+
   .walk-panorama__controls {
-    left: 0.75rem;
-    right: 0.75rem;
-    bottom: 0.75rem;
+    position: static;
+    margin-top: 0.75rem;
+    pointer-events: auto;
   }
 
   .walk-panorama__controls :deep(.plan-controls) {
     width: 100%;
     justify-content: center;
+    background: #fff;
+    backdrop-filter: none;
   }
 }
 </style>
