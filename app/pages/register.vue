@@ -1,81 +1,86 @@
 <template>
   <AuthPageShell
-    title="Регистрация"
-    subtitle="Создайте свой аккаунт"
+    mode="register"
+    title="Создайте аккаунт"
+    subtitle="Сохраняйте маршруты и делитесь своими прогулками."
   >
     <form
       class="auth-form"
       @submit.prevent="onSubmit"
     >
-      <div class="auth-field">
-        <label
-          class="auth-field__label"
-          for="register-name"
-        >Ваше имя</label>
-        <TextField
-          id="register-name"
-          v-model="name"
-          name="name"
-          placeholder="Ваше имя..."
-          autocomplete="name"
-        />
-      </div>
-      <div class="auth-field">
-        <label
-          class="auth-field__label"
-          for="register-nickname"
-        >Ваш никнейм</label>
-        <TextField
-          id="register-nickname"
-          v-model="nickname"
-          name="nickname"
-          placeholder="Ваш никнейм..."
-          autocomplete="username"
-        />
+      <div class="auth-form__row">
+        <div class="auth-field">
+          <label
+            class="auth-field__label"
+            for="register-name"
+          >Ваше имя</label>
+          <TextField
+            id="register-name"
+            v-model="name"
+            name="name"
+            placeholder="Как вас зовут"
+            autocomplete="name"
+          />
+        </div>
+        <div class="auth-field">
+          <label
+            class="auth-field__label"
+            for="register-nickname"
+          >Никнейм</label>
+          <TextField
+            id="register-nickname"
+            v-model="nickname"
+            name="nickname"
+            placeholder="Придумайте никнейм"
+            autocomplete="username"
+          />
+        </div>
       </div>
       <div class="auth-field">
         <label
           class="auth-field__label"
           for="register-email"
-        >Ваш e-mail</label>
+        >E-mail</label>
         <TextField
           id="register-email"
           v-model="email"
           type="email"
           name="email"
-          placeholder="Ваш e-mail..."
+          placeholder="name@example.com"
           autocomplete="email"
         />
       </div>
-      <div class="auth-field">
-        <label
-          class="auth-field__label"
-          for="register-password"
-        >Пароль</label>
-        <TextField
-          id="register-password"
-          v-model="password"
-          type="password"
-          name="password"
-          placeholder="Ваш пароль..."
-          password-toggle
-          autocomplete="new-password"
-        />
-      </div>
-      <div class="auth-field">
-        <label
-          class="auth-field__label"
-          for="register-password-confirm"
-        >Подтвердите пароль</label>
-        <TextField
-          id="register-password-confirm"
-          v-model="passwordConfirm"
-          type="password"
-          name="password_confirm"
-          placeholder="Ваш пароль..."
-          password-toggle
-          autocomplete="new-password"
-        />
+      <div class="auth-form__row">
+        <div class="auth-field">
+          <label
+            class="auth-field__label"
+            for="register-password"
+          >Пароль</label>
+          <TextField
+            id="register-password"
+            v-model="password"
+            type="password"
+            name="password"
+            placeholder="Придумайте пароль"
+            password-toggle
+            autocomplete="new-password"
+          />
+        </div>
+        <div class="auth-field">
+          <label
+            class="auth-field__label"
+            for="register-password-confirm"
+          >Повторите пароль</label>
+          <TextField
+            id="register-password-confirm"
+            v-model="passwordConfirm"
+            type="password"
+            name="password_confirm"
+            placeholder="Повторите пароль"
+            password-toggle
+            autocomplete="new-password"
+          />
+        </div>
       </div>
       <label class="auth-check">
         <input
@@ -89,7 +94,7 @@
           class="auth-check__box"
           aria-hidden="true"
         />
-        <span class="auth-check__text">Я согласен с условиями</span>
+        <span class="auth-check__text">Я согласен с условиями использования</span>
       </label>
       <p
         v-if="formError"
@@ -103,7 +108,7 @@
           type="submit"
           :disabled="pending"
         >
-          {{ pending ? 'Регистрация…' : 'Регистрация' }}
+          {{ pending ? 'Создаем аккаунт…' : 'Создать аккаунт' }}
         </ButtonBlue>
       </div>
       <p class="auth-switch">
@@ -165,96 +170,16 @@ async function onSubmit() {
 </script>
 
 <style scoped>
-.auth-form :deep(.text-field) {
-  border-radius: 9999px;
+.auth-form__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
 }
 
-.auth-field + .auth-field {
-  margin-top: 1rem;
-}
-
-.auth-field__label {
-  display: block;
-  margin-bottom: 0.4rem;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
-  text-align: left;
-}
-
-.auth-check {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  margin-bottom: 1.35rem;
-  cursor: pointer;
-  font-size: 15px;
-  color: #1a1a1a;
-  user-select: none;
-}
-
-.auth-check__input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-
-.auth-check__box {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid #1a5fff;
-  background: #fff;
-  transition: background-color 0.15s ease;
-}
-
-.auth-check__input:checked + .auth-check__box {
-  background: #1a5fff;
-  box-shadow: inset 0 0 0 3px #fff;
-}
-
-.auth-check__input:focus-visible + .auth-check__box {
-  box-shadow: 0 0 0 2px rgba(26, 95, 255, 0.35);
-}
-
-.auth-check__text {
-  line-height: 1.3;
-}
-
-.auth-form__error {
-  margin: 0 0 0.75rem;
-  padding: 0.65rem 0.9rem;
-  border-radius: 12px;
-  background: #ffe8e8;
-  color: #b00020;
-  font-size: 14px;
-  line-height: 1.4;
-  text-align: left;
-}
-
-.auth-form__submit :deep(.btn-blue) {
-  width: 100%;
-}
-
-.auth-switch {
-  margin: 1.25rem 0 0;
-  text-align: center;
-  font-size: 0.9375rem;
-  color: #888;
-}
-
-.auth-switch__link {
-  margin-left: 0.25rem;
-  color: #1a5fff;
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.auth-switch__link:hover {
-  text-decoration: underline;
+@media (max-width: 520px) {
+  .auth-form__row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 </style>

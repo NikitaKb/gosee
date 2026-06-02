@@ -64,6 +64,8 @@ let routeRunner: any | null = null
 let routeAnimationFrame: number | null = null
 let routeAnimationResolve: ((value: boolean) => void) | null = null
 let shouldAnimateNextRoute = false
+let routeBuildResolve: ((value: boolean) => void) | null = null
+let routeBuildTimer: ReturnType<typeof setTimeout> | null = null
 
 function getWaypointsSignature(points: YandexMapsLatLng[]) {
   return points
@@ -136,6 +138,7 @@ function clearRouteFromMap() {
     multiRoute = null
   }
   stopRouteDrawing(false)
+  settleRouteBuild(false)
   routeBuilt.value = false
   redrawMarkers()
 }
@@ -175,6 +178,15 @@ function stopRouteDrawing(completed: boolean) {
   }
   routeAnimationResolve?.(completed)
   routeAnimationResolve = null
+}
+
+function settleRouteBuild(completed: boolean) {
+  if (routeBuildTimer) {
+    clearTimeout(routeBuildTimer)
+    routeBuildTimer = null
+  }
+  routeBuildResolve?.(completed)
+  routeBuildResolve = null
 }
 
 function getDistance(a: YandexMapsLatLng, b: YandexMapsLatLng) {
@@ -280,7 +292,7 @@ function extractWaypointsFromRoute() {
   }
 }
 
-function extractPathFromRoute() {
+function extractPathFromRoute(emitEmpty = true) {
   const activeRoute = multiRoute?.getActiveRoute?.()
   const pathParts = activeRoute?.getPaths?.()
   const points: YandexMapsLatLng[] = []
@@ -298,11 +310,25 @@ function extractPathFromRoute() {
 
   const distanceValue = Number(activeRoute?.properties?.get?.('distance')?.value ?? 0)
   const durationValue = Number(activeRoute?.properties?.get?.('duration')?.value ?? 0)
-  emit('update:path', {
-    path: points,
-    distanceKm: Number.isFinite(distanceValue) ? distanceValue / 1000 : 0,
-    durationMinutes: Number.isFinite(durationValue) ? Math.round(durationValue / 60) : 0,
-  })
+  if (points.length >= 2 || emitEmpty) {
+    emit('update:path', {
+      path: points,
+      distanceKm: Number.isFinite(distanceValue) ? distanceValue / 1000 : 0,
+      durationMinutes: Number.isFinite(durationValue) ? Math.round(durationValue / 60) : 0,
+    })
+  }
+  return points
+}
+
+async function waitForRoutePath() {
+  const deadline = performance.now() + 1800
+  let points = extractPathFromRoute(false)
+
+  while (points.length < 2 && performance.now() < deadline) {
+    await new Promise<void>(resolve => setTimeout(resolve, 50))
+    points = extractPathFromRoute(false)
+  }
+
   return points
 }
 
@@ -311,20 +337,36 @@ function attachRouteEvents() {
     return
   }
 
-  multiRoute.model.events.add('requestsuccess', async () => {
+  const boundRoute = multiRoute
+
+  boundRoute.model.events.add('requestsuccess', async () => {
+    if (multiRoute !== boundRoute) {
+      return
+    }
     extractWaypointsFromRoute()
-    const points = extractPathFromRoute()
+    const points = await waitForRoutePath()
     fitToWaypoints()
+    const animationPoints = points.length >= 2 ? points : [...waypoints.value]
     if (shouldAnimateNextRoute) {
       shouldAnimateNextRoute = false
-      await startRouteDrawing(points)
+      await startRouteDrawing(animationPoints)
     }
     else {
       setMultiRouteVisible(true)
     }
+    settleRouteBuild(true)
   })
 
-  multiRoute.editor.events.add('waypointschange', () => {
+  boundRoute.model.events.add('requestfail', () => {
+    if (multiRoute !== boundRoute) {
+      return
+    }
+    shouldAnimateNextRoute = false
+    setMultiRouteVisible(true)
+    settleRouteBuild(false)
+  })
+
+  boundRoute.editor.events.add('waypointschange', () => {
     extractWaypointsFromRoute()
     extractPathFromRoute()
   })
@@ -361,9 +403,17 @@ async function buildAutoRoute() {
     editorDrawOver: false,
   })
 
-  map.geoObjects.add(multiRoute)
   routeBuilt.value = true
   attachRouteEvents()
+  const routeBuildPromise = new Promise<boolean>((resolve) => {
+    routeBuildResolve = resolve
+    routeBuildTimer = setTimeout(() => {
+      shouldAnimateNextRoute = false
+      setMultiRouteVisible(true)
+      settleRouteBuild(false)
+    }, 15000)
+  })
+  map.geoObjects.add(multiRoute)
 
   try {
     multiRoute.editor.start({
@@ -376,7 +426,7 @@ async function buildAutoRoute() {
     // ignore editor start errors
   }
 
-  return true
+  return await routeBuildPromise
 }
 
 function clearRoute() {
