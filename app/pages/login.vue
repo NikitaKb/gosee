@@ -82,6 +82,10 @@ definePageMeta({
   layout: 'auth',
 })
 
+useHead({
+  title: 'Вход — GoSee',
+})
+
 const identity = ref('')
 const password = ref('')
 const remember = ref(false)

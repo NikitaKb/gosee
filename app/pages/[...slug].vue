@@ -22,6 +22,10 @@ const { data: page } = await useAsyncData(
 if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
 }
+
+useHead(() => ({
+  title: page.value?.title ? `${page.value.title} — GoSee` : 'GoSee',
+}))
 </script>
 
 <template>

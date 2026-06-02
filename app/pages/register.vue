@@ -129,6 +129,10 @@ definePageMeta({
   layout: 'auth',
 })
 
+useHead({
+  title: 'Регистрация — GoSee',
+})
+
 const name = ref('')
 const nickname = ref('')
 const email = ref('')

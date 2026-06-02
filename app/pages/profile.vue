@@ -26,6 +26,10 @@
 import type { UserProfile } from '~/types/profile'
 import type { WalkSummary } from '~/types/walk'
 
+useHead({
+  title: 'Мой профиль — GoSee',
+})
+
 const profile = ref<UserProfile | null>(null)
 const favoriteWalks = ref<WalkSummary[]>([])
 const pending = ref(true)
