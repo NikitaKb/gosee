@@ -59,6 +59,10 @@
             class="planning-page__preview"
             aria-label="Превью прогулки"
           >
+            <div class="planning-page__preview-heading">
+              <span>Панорама маршрута</span>
+              <small>Посмотрите прогулку до публикации</small>
+            </div>
             <StreetView
               :position="streetPosition"
               :heading="streetHeading"
@@ -584,7 +588,7 @@ async function publishRoute() {
 <style scoped>
 .planning-page {
   box-sizing: border-box;
-  width: min(100%, 1180px);
+  width: min(100%, 1320px);
   margin: 0 auto;
   padding: 1rem 0.875rem 2.25rem;
   min-height: 0;
@@ -699,6 +703,32 @@ async function publishRoute() {
   z-index: 10;
 }
 
+.planning-page__preview-heading {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #fff;
+  backdrop-filter: blur(10px);
+}
+
+.planning-page__preview-heading span {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.planning-page__preview-heading small {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.75rem;
+}
+
 .planning-page__warn {
   padding: 1rem;
   border-radius: 14px;
@@ -773,7 +803,7 @@ async function publishRoute() {
 
 @media (min-width: 1024px) {
   .planning-page__card {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-columns: minmax(21rem, 0.9fr) minmax(0, 1.45fr);
     gap: 1.5rem;
     padding: clamp(1.25rem, 2vw, 2rem);
   }

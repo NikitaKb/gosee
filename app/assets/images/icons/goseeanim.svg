@@ -1,0 +1,51 @@
+<svg width="58" height="62" viewBox="0 0 58 62" fill="none" xmlns="http://www.w3.org/2000/svg">
+<style>
+  .goose-foot {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .goose-foot--front {
+    animation: goose-foot-front 0.22s ease-in-out infinite alternate;
+  }
+
+  .goose-foot--back {
+    animation: goose-foot-back 0.22s ease-in-out infinite alternate;
+  }
+
+  .goose-wing {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: goose-wing-run 0.22s ease-in-out infinite alternate;
+  }
+
+  @keyframes goose-foot-front {
+    from { transform: translateX(-1px) translateY(0) rotate(-5deg); }
+    to { transform: translateX(2px) translateY(-2px) rotate(7deg); }
+  }
+
+  @keyframes goose-foot-back {
+    from { transform: translateX(2px) translateY(-2px) rotate(7deg); }
+    to { transform: translateX(-1px) translateY(0) rotate(-5deg); }
+  }
+
+  @keyframes goose-wing-run {
+    from { transform: rotate(-3deg); }
+    to { transform: rotate(6deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .goose-foot,
+    .goose-wing {
+      animation: none;
+    }
+  }
+</style>
+<path d="M42.5704 32.5055C34.019 27.9626 25.1964 28.0707 23.0254 26.6648C21.5323 25.6912 20.7173 16.3893 23.161 10.3324C27.0962 0.598316 18.6819 -1.2409 13.9315 1.35584L7.55119 4.60092C3.47889 7.84601 -1.00021 7.84601 0.492823 9.03576C1.85026 10.1163 9.99485 9.25187 11.7591 10.7658C15.152 13.6867 9.85925 28.0718 9.04422 33.5883C7.82239 40.7268 8.90862 43.7558 17.5956 47.5412C20.0393 48.6217 23.839 49.3793 26.9606 49.9207V54.8958H14.6096L17.7312 58.1409H20.8529L23.9746 61.386H30.2179L33.2054 58.1409V50.7862L39.8555 51.5426C49.7644 52.5163 56.9583 51.6507 56.9583 51.6507C56.9583 51.6507 53.6997 38.4554 42.5704 32.5055Z" fill="white"/>
+<path class="goose-foot goose-foot--front" d="M27.0975 55.0026H14.8806L18.0023 58.2477H24.247L27.0975 55.0026Z" fill="#3262F2" stroke="#175DFB" stroke-width="0.66907" stroke-linecap="round" stroke-linejoin="round"/>
+<path class="goose-foot goose-foot--back" d="M33.3408 58.2478H20.9884L24.11 61.4929H30.3548L33.3408 58.2478Z" fill="#175DFB" stroke="#175DFB" stroke-width="0.66907" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12.0301 10.8738C10.2659 9.25073 2.12131 10.2244 0.765293 9.14267C-0.729154 7.95292 3.74995 7.95292 7.82225 4.70784C10.5371 2.54445 12.5726 4.0595 12.5726 6.65511L12.0301 10.8738Z" fill="#175DFB" stroke="#175DFB" stroke-width="0.66907" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12.4387 6.65504C12.5743 4.05942 10.4018 2.5455 7.68693 4.70776C3.61464 7.95284 -0.86447 7.95285 0.628565 9.1426C1.986 10.2243 10.1306 9.35871 11.8948 10.8738C15.2877 13.7935 9.99499 28.1786 9.17997 33.6952C7.95955 40.8337 9.04437 43.8626 17.7314 47.648C22.6187 49.8114 33.3397 50.8931 33.3397 50.8931V58.2477M14.2029 1.4638C18.8176 -1.241 27.2334 0.597097 23.4323 10.4404C20.9886 16.4972 21.8037 25.7991 23.2967 26.7728C25.4677 28.1797 34.1547 27.9625 42.8418 32.6146C53.9724 38.5622 57.2297 51.8656 57.2297 51.8656C57.2297 51.8656 50.0357 52.7323 40.1269 51.7575" stroke="black" stroke-width="0.66907" stroke-linecap="round" stroke-linejoin="round"/>
+<path class="goose-wing" d="M20.7175 35.8586C23.9748 44.7283 38.4983 46.3491 38.4983 46.3491" stroke="black" stroke-width="0.66907" stroke-miterlimit="10" stroke-linecap="round"/>
+<path d="M24.2475 58.2477H18.0028L14.8811 55.0026H27.098V50.0275M33.3413 58.2477H20.9888L24.1105 61.4928H30.3553" stroke="black" stroke-width="0.66907" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -43,15 +43,11 @@
           </div>
 
           <dl class="walk-hero-card__facts">
-            <div>
-              <dt>Название</dt>
-              <dd>{{ walk.title }}</dd>
-            </div>
-            <div>
+            <div class="walk-hero-card__fact walk-hero-card__fact--wide">
               <dt>Описание</dt>
               <dd>{{ walk.description || 'Описание не указано' }}</dd>
             </div>
-            <div>
+            <div class="walk-hero-card__fact">
               <dt>Тип прогулки</dt>
               <dd class="walk-hero-card__mode-fact">
                 <img
@@ -65,23 +61,26 @@
                 {{ modeLabel }}
               </dd>
             </div>
-            <div>
+            <div class="walk-hero-card__fact">
               <dt>Общая дистанция</dt>
               <dd>{{ walk.distanceKm.toFixed(1) }} км</dd>
             </div>
-            <div>
+            <div class="walk-hero-card__fact">
               <dt>Примерное время в пути</dt>
               <dd>{{ durationLabel }}</dd>
             </div>
-            <div v-if="walk.timeStart || walk.timeEnd">
+            <div
+              v-if="walk.timeStart || walk.timeEnd"
+              class="walk-hero-card__fact"
+            >
               <dt>Время прогулки</dt>
               <dd>{{ walk.timeStart || '--:--' }} - {{ walk.timeEnd || '--:--' }}</dd>
             </div>
-            <div>
+            <div class="walk-hero-card__fact walk-hero-card__fact--route">
               <dt>Начало</dt>
               <dd>{{ startAddress }}</dd>
             </div>
-            <div>
+            <div class="walk-hero-card__fact walk-hero-card__fact--route">
               <dt>Конец</dt>
               <dd>{{ endAddress }}</dd>
             </div>
@@ -447,6 +446,29 @@ watchEffect(() => {
   border-radius: 10px;
   background: #f6f8fc;
   border: 1px solid #e7edf7;
+}
+
+.walk-hero-card__fact--wide,
+.walk-hero-card__fact--route {
+  grid-column: 1 / -1;
+}
+
+.walk-hero-card__fact--route {
+  position: relative;
+  padding-left: 1.9rem !important;
+}
+
+.walk-hero-card__fact--route::before {
+  position: absolute;
+  top: 0.9rem;
+  left: 0.72rem;
+  width: 0.62rem;
+  height: 0.62rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2b65ff;
+  box-shadow: 0 0 0 2px #b9ceff;
+  content: '';
 }
 
 .walk-hero-card__facts dt {

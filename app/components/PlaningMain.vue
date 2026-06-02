@@ -1,10 +1,19 @@
 <template>
   <div class="home-page">
-    <section class="home-hero">
+    <section
+      class="home-hero"
+      :style="{ '--home-hero-image': `url(${moscowHeroImage})` }"
+    >
       <div class="home-hero__card">
+        <p class="home-hero__eyebrow">
+          Маршруты для прогулок по городу
+        </p>
         <h1 class="home-hero__title">
           Планируйте свою прогулку онлайн
         </h1>
+        <p class="home-hero__lead">
+          Соберите маршрут на карте, заранее посмотрите панорамы улиц и поделитесь прогулкой с сообществом.
+        </p>
 
         <div class="home-hero__fields">
           <label class="home-hero__field">
@@ -88,6 +97,10 @@
             v-for="place in popularDestinations"
             :key="place.id"
             class="destination-card"
+            role="link"
+            tabindex="0"
+            @click="navigateTo(place.to)"
+            @keydown.enter.prevent="navigateTo(place.to)"
           >
             <div class="destination-card__image-wrap">
               <img
@@ -126,12 +139,6 @@
                   {{ place.rating }}
                 </span>
               </div>
-              <NuxtLink
-                :to="place.to"
-                class="destination-card__link"
-              >
-                Подробнее
-              </NuxtLink>
             </div>
           </article>
         </div>
@@ -220,6 +227,7 @@
 
 <script setup lang="ts">
 import type { WalkSummary } from '~/types/walk'
+import moscowHeroImage from '~/assets/images/moscow4k.jpg'
 import geoIcon from '~/assets/images/icons/geo.svg'
 import mapIcon from '~/assets/images/icons/map.svg'
 import panoramaIcon from '~/assets/images/icons/panorama.svg'
@@ -329,20 +337,22 @@ function formatBadge(walk: WalkSummary) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5rem 1rem 4rem;
+  padding: 5.5rem 1rem 4.5rem;
   background:
-    radial-gradient(circle at 18% 18%, rgba(210, 237, 255, 0.9), transparent 30%),
-    linear-gradient(105deg, #e7f6ff 0%, #f7fbff 48%, #ffffff 100%);
+    linear-gradient(90deg, rgba(9, 26, 54, 0.78), rgba(9, 26, 54, 0.44)),
+    var(--home-hero-image) center / cover;
 }
 
 .home-hero__card {
   box-sizing: border-box;
-  width: min(100%, 1180px);
+  width: min(100%, 760px);
+  margin-right: min(34vw, 360px);
   padding: clamp(1.35rem, 4vw, 2rem);
   background: rgba(255, 255, 255, 0.94);
-  border: 1px solid #eef2f8;
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(20, 85, 170, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+  box-shadow: 0 24px 70px rgba(5, 18, 42, 0.24);
+  backdrop-filter: blur(18px);
 }
 
 .home-hero__title,
@@ -357,7 +367,28 @@ function formatBadge(walk: WalkSummary) {
 }
 
 .home-hero__title {
-  margin-bottom: 1.75rem;
+  color: #172033;
+  margin-bottom: 0.85rem;
+  font-size: clamp(2.25rem, 5vw, 3.65rem);
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  text-align: left;
+}
+
+.home-hero__eyebrow {
+  margin: 0 0 0.8rem;
+  color: #1a5fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.home-hero__lead {
+  max-width: 58ch;
+  margin: 0 0 1.25rem;
+  color: #526174;
+  line-height: 1.65;
 }
 
 .home-hero__fields {
@@ -456,17 +487,20 @@ function formatBadge(walk: WalkSummary) {
 
 .home-section {
   box-sizing: border-box;
-  padding: clamp(3rem, 7vw, 4.8rem) 1rem;
+  padding: clamp(4rem, 8vw, 6.4rem) 1rem;
 }
 
 .home-section--white {
-  background: #fff;
+  background:
+    radial-gradient(circle at 84% 10%, rgba(232, 240, 255, 0.9), transparent 22rem),
+    #fff;
 }
 
 .home-section--blue-soft {
   background:
-    radial-gradient(circle at 12% 18%, rgba(211, 238, 255, 0.85), transparent 34%),
-    linear-gradient(105deg, #e8f6ff 0%, #f8fcff 55%, #ffffff 100%);
+    radial-gradient(circle at 10% 20%, rgba(196, 230, 255, 0.72), transparent 30rem),
+    radial-gradient(circle at 88% 85%, rgba(226, 236, 255, 0.9), transparent 28rem),
+    linear-gradient(135deg, #eef8ff 0%, #f8fbff 52%, #fff 100%);
 }
 
 .home-section__inner {
@@ -475,16 +509,16 @@ function formatBadge(walk: WalkSummary) {
 }
 
 .home-section__header {
-  margin: 0 auto 2.2rem;
+  margin: 0 auto 2.75rem;
   text-align: center;
 }
 
 .home-section__lead {
   max-width: 620px;
-  margin: 1rem auto 0;
-  color: #3f4756;
+  margin: 0.85rem auto 0;
+  color: #64748b;
   font-size: 0.95rem;
-  line-height: 1.55;
+  line-height: 1.65;
 }
 
 .home-section__empty {
@@ -501,15 +535,32 @@ function formatBadge(walk: WalkSummary) {
 .destination-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.35rem;
 }
 
 .destination-card {
   overflow: hidden;
-  border: 1px solid #dfe5ef;
-  border-radius: 8px;
+  border: 1px solid rgba(218, 227, 240, 0.88);
+  border-radius: 20px;
   background: #fff;
-  box-shadow: 0 8px 24px rgba(16, 35, 70, 0.04);
+  box-shadow: 0 12px 34px rgba(31, 65, 115, 0.09);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.destination-card:hover,
+.destination-card:focus-visible {
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 20px 44px rgba(31, 65, 115, 0.16);
+  transform: translateY(-6px);
+}
+
+.destination-card:focus-visible {
+  outline: 3px solid rgba(26, 95, 255, 0.3);
+  outline-offset: 3px;
 }
 
 .destination-card__image-wrap {
@@ -523,29 +574,38 @@ function formatBadge(walk: WalkSummary) {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.45s ease;
+}
+
+.destination-card:hover .destination-card__image,
+.destination-card:focus-visible .destination-card__image {
+  transform: scale(1.06);
 }
 
 .destination-card__badge {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
-  padding: 0.4rem 0.7rem;
-  border-radius: 6px;
-  background: #1a5fff;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(26, 95, 255, 0.9);
   color: #fff;
   font-size: 0.75rem;
   font-weight: 600;
+  box-shadow: 0 6px 18px rgba(17, 74, 210, 0.24);
+  backdrop-filter: blur(10px);
 }
 
 .destination-card__body {
-  padding: 0.9rem;
+  padding: 1.1rem 1.15rem 1.2rem;
 }
 
 .destination-card__title {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.7rem;
   color: #111827;
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: 1.08rem;
+  font-weight: 700;
   line-height: 1.3;
 }
 
@@ -553,8 +613,7 @@ function formatBadge(walk: WalkSummary) {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
-  margin-bottom: 0.85rem;
-  color: #111827;
+  color: #64748b;
 }
 
 .destination-card__meta span {
@@ -565,39 +624,31 @@ function formatBadge(walk: WalkSummary) {
   line-height: 1.3;
 }
 
-.destination-card__link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: min(100%, 170px);
-  min-height: 36px;
-  border-radius: 8px;
-  background: #1a5fff;
-  color: #fff;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 0.15s ease;
-}
-
-.destination-card__link:hover {
-  background: #0d4fe6;
-  color: #fff;
-}
-
 .benefit-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
 .benefit-card {
-  min-height: 210px;
-  padding: 1.6rem 1rem;
-  border: 1px solid #dbe4f0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.5);
-  text-align: center;
+  min-height: 220px;
+  padding: 1.45rem;
+  border: 1px solid rgba(214, 226, 241, 0.9);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 10px 28px rgba(50, 84, 130, 0.06);
+  text-align: left;
+  backdrop-filter: blur(10px);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.benefit-card:hover {
+  border-color: rgba(37, 99, 235, 0.25);
+  box-shadow: 0 16px 34px rgba(50, 84, 130, 0.12);
+  transform: translateY(-5px);
 }
 
 .benefit-card__icon-wrap,
@@ -605,49 +656,64 @@ function formatBadge(walk: WalkSummary) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
   background: #dceaff;
 }
 
 .benefit-card__icon-wrap {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 1.25rem;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 1.35rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #e5efff, #cfe0ff);
 }
 
 .benefit-card__title {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.7rem;
   color: #111827;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.02rem;
+  font-weight: 700;
   line-height: 1.3;
 }
 
 .benefit-card__text {
   margin: 0;
-  color: #111827;
+  color: #64748b;
   font-size: 0.9rem;
-  line-height: 1.35;
+  line-height: 1.55;
 }
 
 .home-cta {
   box-sizing: border-box;
-  padding: 3.8rem 1rem;
-  background: #1a5fff;
-  color: #fff;
+  padding: clamp(1.2rem, 4vw, 3rem) 1rem clamp(4rem, 8vw, 6rem);
+  background: #fff;
 }
 
 .home-cta__inner {
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
   width: min(100%, 1180px);
   margin: 0 auto;
+  padding: clamp(2.8rem, 6vw, 4.5rem) 1.25rem;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(117, 166, 255, 0.75), transparent 16rem),
+    radial-gradient(circle at 92% 88%, rgba(47, 209, 218, 0.38), transparent 18rem),
+    linear-gradient(135deg, #1954df 0%, #2563eb 48%, #1b74e8 100%);
+  box-shadow: 0 22px 54px rgba(23, 81, 196, 0.22);
+  color: #fff;
   text-align: center;
 }
 
 .home-cta__icon-wrap {
+  position: relative;
+  z-index: 1;
   width: 62px;
   height: 62px;
   margin-bottom: 1.4rem;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
 }
 
 .home-cta__icon {
@@ -655,10 +721,14 @@ function formatBadge(walk: WalkSummary) {
 }
 
 .home-cta__title {
+  position: relative;
+  z-index: 1;
   color: #fff;
 }
 
 .home-cta__text {
+  position: relative;
+  z-index: 1;
   max-width: 560px;
   margin: 1rem auto 1.25rem;
   color: rgba(255, 255, 255, 0.88);
@@ -667,6 +737,8 @@ function formatBadge(walk: WalkSummary) {
 }
 
 .home-cta__link {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -674,9 +746,10 @@ function formatBadge(walk: WalkSummary) {
   min-width: min(100%, 310px);
   min-height: 44px;
   padding: 0 1.35rem;
-  border-radius: 12px;
+  border-radius: 14px;
   background: #fff;
   color: #1a5fff;
+  box-shadow: 0 10px 22px rgba(11, 55, 146, 0.16);
   font-weight: 600;
   text-decoration: none;
   transition:
@@ -699,6 +772,10 @@ function formatBadge(walk: WalkSummary) {
   .home-hero {
     min-height: auto;
     padding-top: 3rem;
+  }
+
+  .home-hero__card {
+    margin-right: 0;
   }
 
   .destination-grid,
@@ -724,7 +801,6 @@ function formatBadge(walk: WalkSummary) {
     text-align: center;
   }
 
-  .destination-card__link,
   .home-cta__link {
     width: 100%;
   }

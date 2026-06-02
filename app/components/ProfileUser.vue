@@ -827,6 +827,7 @@ const statCards = computed(() => {
 <style scoped>
 .profile-user {
   --pu-blue: #2b65ff;
+  --pu-blue-deep: #1f55e8;
   --pu-blue-soft: #e8f0ff;
   --pu-text: #1a1a1a;
   --pu-muted: #8e8e8e;
@@ -837,11 +838,38 @@ const statCards = computed(() => {
 
 .profile-hero {
   position: relative;
-  border-radius: 20px;
-  padding: 1.75rem 1.5rem 1.65rem;
-  background: var(--pu-blue);
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 1.8rem 1.65rem 1.7rem;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(255, 255, 255, 0.2), transparent 12rem),
+    linear-gradient(135deg, var(--pu-blue-deep), #3973ff);
   color: #fff;
-  box-shadow: 0 10px 36px rgba(43, 101, 255, 0.28);
+  box-shadow: 0 18px 42px rgba(43, 101, 255, 0.2);
+}
+
+.profile-hero::before,
+.profile-hero::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.profile-hero::before {
+  width: 18rem;
+  height: 18rem;
+  right: -6rem;
+  top: -9rem;
+}
+
+.profile-hero::after {
+  width: 12rem;
+  height: 12rem;
+  right: 8rem;
+  bottom: -9rem;
 }
 
 .profile-hero__main {
@@ -956,9 +984,11 @@ const statCards = computed(() => {
   height: 128px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid #fff;
+  border: 4px solid rgba(255, 255, 255, 0.94);
   box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 8px 24px rgba(13, 38, 106, 0.2),
+    0 0 0 5px rgba(255, 255, 255, 0.12);
 }
 
 .profile-hero__avatar--placeholder {
@@ -1018,8 +1048,8 @@ const statCards = computed(() => {
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
   cursor: pointer;
@@ -1058,9 +1088,9 @@ const statCards = computed(() => {
   box-sizing: border-box;
   margin: 0;
   padding: 0.5rem 0.65rem;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.98);
   font: inherit;
   font-size: 0.98rem;
@@ -1102,7 +1132,7 @@ const statCards = computed(() => {
   max-width: 200px;
   padding: 0.35rem 1.75rem 0.35rem 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 10px;
+  border-radius: 9999px;
   background-color: rgba(255, 255, 255, 0.12);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -1152,8 +1182,8 @@ const statCards = computed(() => {
 .profile-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  margin-top: 1.35rem;
+  gap: 0.9rem;
+  margin-top: 1.45rem;
 }
 
 .profile-stats--three {
@@ -1203,11 +1233,23 @@ const statCards = computed(() => {
 }
 
 .profile-stat-card {
+  position: relative;
+  overflow: hidden;
   border-radius: 16px;
-  padding: 1.05rem 1.15rem;
+  padding: 1.1rem 1.15rem;
   background: #fff;
-  border: none;
-  box-shadow: 0 4px 20px rgba(15, 30, 60, 0.06);
+  border: 1px solid rgba(222, 230, 242, 0.88);
+  box-shadow: 0 8px 22px rgba(15, 30, 60, 0.055);
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.profile-stat-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(173, 194, 235, 0.92);
+  box-shadow: 0 16px 30px rgba(15, 30, 60, 0.1);
 }
 
 .profile-stat-card__icon {
@@ -1217,7 +1259,7 @@ const statCards = computed(() => {
   width: 46px;
   height: 46px;
   margin-bottom: 0.7rem;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--pu-blue-soft);
   color: var(--pu-blue);
 }
@@ -1237,16 +1279,20 @@ const statCards = computed(() => {
 }
 
 .profile-tabs-wrap {
-  margin-top: 1.45rem;
+  margin-top: 1.55rem;
 }
 
 .profile-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
-  padding: 0.4rem;
-  border-radius: 9999px;
-  background: var(--pu-blue-soft);
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.35rem;
+  border: 1px solid rgba(222, 230, 242, 0.9);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 6px 18px rgba(15, 30, 60, 0.045);
 }
 
 .profile-tab {
@@ -1255,7 +1301,7 @@ const statCards = computed(() => {
   gap: 0.5rem;
   padding: 0.7rem 1.25rem;
   border: none;
-  border-radius: 9999px;
+  border-radius: 12px;
   font: inherit;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -1272,17 +1318,18 @@ const statCards = computed(() => {
 }
 
 .profile-tab--active {
-  background: #fff;
-  color: var(--pu-blue);
-  box-shadow: 0 2px 12px rgba(43, 101, 255, 0.15);
+  background: var(--pu-blue);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(43, 101, 255, 0.22);
 }
 
 .profile-panel {
   margin-top: 1.15rem;
-  padding: 1.25rem 1rem;
-  border-radius: 18px;
+  padding: 1.3rem 1.15rem;
+  border: 1px solid rgba(222, 230, 242, 0.82);
+  border-radius: 20px;
   background: #fff;
-  box-shadow: 0 4px 20px rgba(15, 30, 60, 0.05);
+  box-shadow: 0 10px 28px rgba(15, 30, 60, 0.055);
   min-height: 80px;
 }
 
@@ -1295,6 +1342,28 @@ const statCards = computed(() => {
   font-size: 0.875rem;
   line-height: 1.45;
   color: var(--pu-muted);
+}
+
+.profile-panel__caption:only-child {
+  min-height: 5.5rem;
+  max-width: 62ch;
+  margin: 0;
+  padding: 1.15rem 0 0 4.7rem;
+  position: relative;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.profile-panel__caption:only-child::before {
+  content: '';
+  position: absolute;
+  left: 0.2rem;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(43, 101, 255, 0.15), rgba(43, 101, 255, 0.04)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%232b65ff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6'/%3E%3Cline x1='8' y1='2' x2='8' y2='18'/%3E%3Cline x1='16' y1='6' x2='16' y2='22'/%3E%3C/svg%3E") center / 1.55rem no-repeat;
 }
 
 .profile-panel__link {
@@ -1311,5 +1380,11 @@ const statCards = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-stat-card {
+    transition: none;
+  }
 }
 </style>

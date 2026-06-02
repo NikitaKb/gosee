@@ -14,6 +14,7 @@
 
 <script setup lang="ts">
 import type { YandexDirectionsTravelMode, YandexMapsLatLng } from '~/composables/useYandexMaps'
+import goseeAnimIcon from '~/assets/images/icons/goseeanim.svg'
 
 const props = withDefaults(
   defineProps<{
@@ -32,6 +33,9 @@ const emit = defineEmits<{
 const { load, createMap, getYandex } = useYandexMaps()
 
 const hintText = computed(() => {
+  if (isRouteDrawing.value) {
+    return 'Гусь прокладывает маршрут по дорогам...'
+  }
   if (routeBuilt.value) {
     return 'Маршрут построен по дорогам. Перетаскивайте точки и линию маршрута, чтобы изменить путь.'
   }
@@ -51,9 +55,15 @@ let map: YMap | null = null
 const markers: any[] = []
 let multiRoute: any | null = null
 const routeBuilt = ref(false)
+const isRouteDrawing = ref(false)
 let syncingFromRoute = false
 let suppressRouteRebuild = false
 let resizeObserver: ResizeObserver | null = null
+let routeRevealLine: any | null = null
+let routeRunner: any | null = null
+let routeAnimationFrame: number | null = null
+let routeAnimationResolve: ((value: boolean) => void) | null = null
+let shouldAnimateNextRoute = false
 
 function getWaypointsSignature(points: YandexMapsLatLng[]) {
   return points
@@ -125,8 +135,128 @@ function clearRouteFromMap() {
     }
     multiRoute = null
   }
+  stopRouteDrawing(false)
   routeBuilt.value = false
   redrawMarkers()
+}
+
+function setMultiRouteVisible(visible: boolean) {
+  multiRoute?.options?.set?.({
+    routeActiveStrokeColor: visible ? '#2b65ff' : 'rgba(43, 101, 255, 0)',
+    routeActiveStrokeWidth: visible ? 5 : 0,
+    routeStrokeColor: visible ? '#9bb8ff' : 'rgba(155, 184, 255, 0)',
+    routeStrokeWidth: visible ? 4 : 0,
+  })
+}
+
+function removeRouteDrawingLayers() {
+  if (!map) {
+    return
+  }
+  if (routeRevealLine) {
+    map.geoObjects.remove(routeRevealLine)
+    routeRevealLine = null
+  }
+  if (routeRunner) {
+    map.geoObjects.remove(routeRunner)
+    routeRunner = null
+  }
+}
+
+function stopRouteDrawing(completed: boolean) {
+  if (routeAnimationFrame !== null) {
+    cancelAnimationFrame(routeAnimationFrame)
+    routeAnimationFrame = null
+  }
+  removeRouteDrawingLayers()
+  isRouteDrawing.value = false
+  if (completed) {
+    setMultiRouteVisible(true)
+  }
+  routeAnimationResolve?.(completed)
+  routeAnimationResolve = null
+}
+
+function getDistance(a: YandexMapsLatLng, b: YandexMapsLatLng) {
+  const latScale = 111320
+  const lngScale = Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180) * latScale
+  return Math.hypot((b.lat - a.lat) * latScale, (b.lng - a.lng) * lngScale)
+}
+
+function interpolatePoint(a: YandexMapsLatLng, b: YandexMapsLatLng, ratio: number): YandexMapsLatLng {
+  return {
+    lat: a.lat + (b.lat - a.lat) * ratio,
+    lng: a.lng + (b.lng - a.lng) * ratio,
+  }
+}
+
+function startRouteDrawing(points: YandexMapsLatLng[]) {
+  const g = getYandex() as any
+  if (!g?.Polyline || !g?.Placemark || !map || points.length < 2) {
+    setMultiRouteVisible(true)
+    return Promise.resolve(true)
+  }
+
+  stopRouteDrawing(false)
+  setMultiRouteVisible(false)
+  isRouteDrawing.value = true
+
+  const segmentLengths = points.slice(1).map((point, index) => getDistance(points[index]!, point))
+  const totalLength = segmentLengths.reduce((sum, length) => sum + length, 0)
+  const durationMs = Math.min(5200, Math.max(2400, totalLength * 0.55))
+  routeRevealLine = new g.Polyline([[points[0]!.lat, points[0]!.lng]], {}, {
+    strokeColor: '#2b65ff',
+    strokeWidth: 5,
+    strokeOpacity: 0.95,
+  })
+  routeRunner = new g.Placemark([points[0]!.lat, points[0]!.lng], {}, {
+    iconLayout: 'default#image',
+    iconImageHref: goseeAnimIcon,
+    iconImageSize: [54, 58],
+    iconImageOffset: [-27, -51],
+    zIndex: 900,
+  })
+  map.geoObjects.add(routeRevealLine)
+  map.geoObjects.add(routeRunner)
+
+  return new Promise<boolean>((resolve) => {
+    routeAnimationResolve = resolve
+    const startedAt = performance.now()
+
+    function drawFrame(now: number) {
+      const targetDistance = Math.min(totalLength, totalLength * ((now - startedAt) / durationMs))
+      const visibleCoords: number[][] = [[points[0]!.lat, points[0]!.lng]]
+      let walkedDistance = 0
+      let runnerPoint = points[0]!
+
+      for (let index = 0; index < segmentLengths.length; index++) {
+        const segmentLength = segmentLengths[index]!
+        const start = points[index]!
+        const end = points[index + 1]!
+        if (walkedDistance + segmentLength <= targetDistance) {
+          visibleCoords.push([end.lat, end.lng])
+          walkedDistance += segmentLength
+          runnerPoint = end
+          continue
+        }
+        const ratio = segmentLength > 0 ? (targetDistance - walkedDistance) / segmentLength : 1
+        runnerPoint = interpolatePoint(start, end, Math.max(0, Math.min(1, ratio)))
+        visibleCoords.push([runnerPoint.lat, runnerPoint.lng])
+        break
+      }
+
+      routeRevealLine?.geometry?.setCoordinates?.(visibleCoords)
+      routeRunner?.geometry?.setCoordinates?.([runnerPoint.lat, runnerPoint.lng])
+
+      if (targetDistance >= totalLength) {
+        stopRouteDrawing(true)
+        return
+      }
+      routeAnimationFrame = requestAnimationFrame(drawFrame)
+    }
+
+    routeAnimationFrame = requestAnimationFrame(drawFrame)
+  })
 }
 
 function extractWaypointsFromRoute() {
@@ -173,6 +303,7 @@ function extractPathFromRoute() {
     distanceKm: Number.isFinite(distanceValue) ? distanceValue / 1000 : 0,
     durationMinutes: Number.isFinite(durationValue) ? Math.round(durationValue / 60) : 0,
   })
+  return points
 }
 
 function attachRouteEvents() {
@@ -180,10 +311,17 @@ function attachRouteEvents() {
     return
   }
 
-  multiRoute.model.events.add('requestsuccess', () => {
+  multiRoute.model.events.add('requestsuccess', async () => {
     extractWaypointsFromRoute()
-    extractPathFromRoute()
+    const points = extractPathFromRoute()
     fitToWaypoints()
+    if (shouldAnimateNextRoute) {
+      shouldAnimateNextRoute = false
+      await startRouteDrawing(points)
+    }
+    else {
+      setMultiRouteVisible(true)
+    }
   })
 
   multiRoute.editor.events.add('waypointschange', () => {
@@ -204,6 +342,7 @@ async function buildAutoRoute() {
 
   clearRouteFromMap()
   map.geoObjects.removeAll()
+  shouldAnimateNextRoute = true
 
   multiRoute = new g.multiRouter.MultiRoute({
     referencePoints: waypoints.value.map(point => [point.lat, point.lng]),
@@ -213,10 +352,10 @@ async function buildAutoRoute() {
     },
   }, {
     boundsAutoApply: true,
-    routeActiveStrokeColor: '#2b65ff',
-    routeActiveStrokeWidth: 5,
-    routeStrokeColor: '#9bb8ff',
-    routeStrokeWidth: 4,
+    routeActiveStrokeColor: 'rgba(43, 101, 255, 0)',
+    routeActiveStrokeWidth: 0,
+    routeStrokeColor: 'rgba(155, 184, 255, 0)',
+    routeStrokeWidth: 0,
     waypointVisible: true,
     pinVisible: true,
     editorDrawOver: false,
@@ -332,6 +471,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  stopRouteDrawing(false)
   resizeObserver?.disconnect()
   resizeObserver = null
 })

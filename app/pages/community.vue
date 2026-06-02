@@ -84,40 +84,73 @@
 
     <div
       v-if="pending"
-      class="community-page__state"
+      class="community-page__list community-page__skeleton-list"
+      aria-label="Загрузка маршрутов"
     >
-      Загрузка маршрутов…
+      <div
+        v-for="n in 4"
+        :key="n"
+        class="community-page__skeleton"
+      >
+        <span class="community-page__skeleton-image" />
+        <span class="community-page__skeleton-content">
+          <span class="community-page__skeleton-line community-page__skeleton-line--title" />
+          <span class="community-page__skeleton-line community-page__skeleton-line--short" />
+          <span class="community-page__skeleton-line community-page__skeleton-line--rating" />
+          <span class="community-page__skeleton-line" />
+          <span class="community-page__skeleton-line community-page__skeleton-line--medium" />
+        </span>
+      </div>
     </div>
     <div
       v-else-if="!walks.length"
-      class="community-page__state"
+      class="community-page__empty"
     >
-      Нет маршрутов по заданным условиям. Измените город или фильтры.
+      <img
+        :src="goseeAnimIcon"
+        alt=""
+        class="community-page__empty-goose"
+        width="84"
+        height="90"
+      >
+      <h2 class="community-page__empty-title">
+        Маршруты не найдены
+      </h2>
+      <p class="community-page__empty-text">
+        Измените город или выберите другие фильтры.
+      </p>
     </div>
     <div
       v-else
       class="community-page__list"
       role="list"
     >
-      <WalkPreviewCard
-        v-for="w in walks"
+      <div
+        v-for="(w, index) in walks"
         :key="w.id"
-        variant="walk"
-        :walk="w"
-        community-mode
-        :favorited="w.favorited === true"
-        :favorite-disabled="pendingFavoriteId === w.id"
-        :rating-disabled="pendingRatingId === w.id"
+        :ref="setRevealElement"
+        class="community-page__item"
+        :style="{ '--reveal-delay': `${Math.min(index, 5) * 70}ms` }"
         role="listitem"
-        @toggle-favorite="onToggleFavorite"
-        @set-rating="onSetRating"
-      />
+      >
+        <WalkPreviewCard
+          variant="walk"
+          :walk="w"
+          community-mode
+          :favorited="w.favorited === true"
+          :favorite-disabled="pendingFavoriteId === w.id"
+          :rating-disabled="pendingRatingId === w.id"
+          @toggle-favorite="onToggleFavorite"
+          @set-rating="onSetRating"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { WalkSummary } from '~/types/walk'
+import goseeAnimIcon from '~/assets/images/icons/goseeanim.svg'
 
 useHead({
   title: 'Сообщество — GoSee',
@@ -165,6 +198,53 @@ const pending = ref(true)
 const loadError = ref('')
 const pendingFavoriteId = ref<string | null>(null)
 const pendingRatingId = ref<string | null>(null)
+const revealElements = new Set<HTMLElement>()
+let revealObserver: IntersectionObserver | undefined
+let revealReady = false
+let revealFallbackTimer: ReturnType<typeof setTimeout> | undefined
+
+function setRevealElement(element: Element | null) {
+  if (!(element instanceof HTMLElement)) {
+    return
+  }
+  revealElements.add(element)
+  if (revealReady) {
+    revealObserver?.observe(element)
+  }
+}
+
+function setupRevealObserver() {
+  if (!revealReady) {
+    return
+  }
+  revealObserver?.disconnect()
+  if (!import.meta.client || !('IntersectionObserver' in window)) {
+    revealElements.forEach(element => element.classList.add('community-page__item--visible'))
+    return
+  }
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) {
+          return
+        }
+        entry.target.classList.add('community-page__item--visible')
+        revealObserver?.unobserve(entry.target)
+      })
+    },
+    { threshold: 0.12 },
+  )
+  revealElements.forEach(element => revealObserver?.observe(element))
+}
+
+function startReveal() {
+  if (revealFallbackTimer) {
+    clearTimeout(revealFallbackTimer)
+    revealFallbackTimer = undefined
+  }
+  revealReady = true
+  setupRevealObserver()
+}
 
 async function loadRoutes(silent = false) {
   if (!silent) {
@@ -212,8 +292,25 @@ watch(
   { immediate: true },
 )
 
+watch(walks, async () => {
+  revealObserver?.disconnect()
+  revealElements.clear()
+  await nextTick()
+  setupRevealObserver()
+})
+
 onMounted(() => {
   fetchUser()
+  window.addEventListener('gosee:page-transition-finished', startReveal, { once: true })
+  revealFallbackTimer = setTimeout(startReveal, 1100)
+})
+
+onUnmounted(() => {
+  revealObserver?.disconnect()
+  if (revealFallbackTimer) {
+    clearTimeout(revealFallbackTimer)
+  }
+  window.removeEventListener('gosee:page-transition-finished', startReveal)
 })
 
 async function onSetRating(walkId: string, value: number) {
@@ -292,41 +389,43 @@ async function onToggleFavorite(walkId: string) {
   box-sizing: border-box;
   max-width: 954px;
   margin: 0 auto;
-  padding: 1.25rem 1rem 2.5rem;
+  padding: 2.4rem 1rem 4rem;
   min-height: 60vh;
-  background: #f5f7fa;
+  background: #f7f9fc;
   font-family: 'Inter', system-ui, sans-serif;
   color: #1a1a1a;
 }
 
 .community-page__intro {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.65rem;
 }
 
 .community-page__title {
-  margin: 0 0 0.35rem;
-  font-size: clamp(1.45rem, 3.5vw, 1.85rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  margin: 0 0 0.45rem;
+  color: #172033;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 750;
+  letter-spacing: -0.045em;
 }
 
 .community-page__lead {
   margin: 0;
-  font-size: 0.95rem;
-  color: #8e8e8e;
-  line-height: 1.45;
+  font-size: 1rem;
+  color: #64748b;
+  line-height: 1.55;
 }
 
 .community-page__filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem 1.25rem;
-  padding: 1.15rem 1.1rem;
-  margin-bottom: 1.25rem;
-  border-radius: 18px;
-  background: #fff;
-  border: 1px solid #e8ecf2;
-  box-shadow: 0 4px 20px rgba(15, 30, 60, 0.05);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(218, 227, 240, 0.92);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 34px rgba(31, 65, 115, 0.08);
+  backdrop-filter: blur(16px);
 }
 
 .community-page__field {
@@ -338,29 +437,32 @@ async function onToggleFavorite(walkId: string) {
 
 .community-page__label {
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: #444;
+  font-weight: 700;
+  color: #334155;
 }
 
 .community-page__input,
 .community-page__select {
   box-sizing: border-box;
   width: 100%;
-  padding: 0.65rem 0.85rem;
-  border-radius: 12px;
-  border: 1px solid #e0e6ef;
-  background: #fff;
+  min-height: 48px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #dde5f0;
+  border-radius: 14px;
+  background: rgba(248, 250, 253, 0.92);
   font: inherit;
   font-size: 0.9375rem;
   color: #1a1a1a;
   outline: none;
   transition:
+    background-color 0.15s ease,
     border-color 0.15s ease,
     box-shadow 0.15s ease;
 }
 
 .community-page__input:focus,
 .community-page__select:focus {
+  background: #fff;
   border-color: #2b65ff;
   box-shadow: 0 0 0 3px rgba(43, 101, 255, 0.15);
 }
@@ -391,9 +493,210 @@ async function onToggleFavorite(walkId: string) {
   color: #666;
 }
 
-.community-page__list {
+.community-page__empty {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  align-items: center;
+  max-width: 32rem;
+  margin: 1.5rem auto 0;
+  padding: 2.2rem 1.25rem;
+  border: 1px solid #e3e9f2;
+  border-radius: 22px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.community-page__empty-goose {
+  display: block;
+  width: 84px;
+  height: 90px;
+  margin-bottom: 0.8rem;
+  animation: empty-goose-step 0.8s ease-in-out infinite alternate;
+}
+
+.community-page__empty-title {
+  margin: 0 0 0.45rem;
+  color: #172033;
+  font-size: 1.2rem;
+}
+
+.community-page__empty-text {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.community-page__list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.2rem;
+}
+
+.community-page__item {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.48s ease,
+    transform 0.48s ease;
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.community-page__item--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.community-page__skeleton {
+  display: flex;
+  gap: 1.15rem;
+  min-height: 238px;
+  padding: 1rem;
+  border: 1px solid #e3e9f2;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+.community-page__skeleton-image,
+.community-page__skeleton-line {
+  display: block;
+  overflow: hidden;
+  background: #edf1f6;
+}
+
+.community-page__skeleton-image::after,
+.community-page__skeleton-line::after {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  content: '';
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+  transform: translateX(-100%);
+}
+
+.community-page__skeleton-image {
+  flex: 0 0 230px;
+  border-radius: 16px;
+}
+
+.community-page__skeleton-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding-top: 0.2rem;
+}
+
+.community-page__skeleton-line {
+  width: 100%;
+  height: 0.85rem;
+  border-radius: 999px;
+}
+
+.community-page__skeleton-line--title {
+  width: 62%;
+  height: 1.25rem;
+}
+
+.community-page__skeleton-line--short {
+  width: 44%;
+}
+
+.community-page__skeleton-line--rating {
+  height: 2.7rem;
+  margin: 0.2rem 0;
+  border-radius: 13px;
+}
+
+.community-page__skeleton-line--medium {
+  width: 76%;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes empty-goose-step {
+  to {
+    transform: translateY(-7px) rotate(-2deg);
+  }
+}
+
+@media (min-width: 860px) {
+  .community-page {
+    max-width: 1180px;
+  }
+
+  .community-page__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .community-page__list :deep(.walk-card) {
+    align-content: start;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 1rem;
+    border-color: rgba(218, 227, 240, 0.88);
+    border-radius: 22px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+  }
+
+  .community-page__list :deep(.walk-card:hover) {
+    border-color: rgba(148, 163, 184, 0.55);
+    box-shadow: 0 20px 42px rgba(15, 23, 42, 0.12);
+    transform: translateY(-5px);
+  }
+
+  .community-page__list :deep(.walk-card__visual) {
+    max-width: 230px;
+  }
+
+  .community-page__list :deep(.walk-card__carousel),
+  .community-page__list :deep(.walk-card__img) {
+    height: 100%;
+  }
+
+  .community-page__list :deep(.walk-card__carousel) {
+    border-radius: 16px;
+  }
+
+  .community-page__list :deep(.walk-card__img) {
+    aspect-ratio: auto;
+  }
+
+  .community-page__list :deep(.walk-card__rating-block) {
+    border-color: #e7edf6;
+    border-radius: 13px;
+    background: #f7f9fc;
+  }
+}
+
+@media (max-width: 640px) {
+  .community-page__skeleton {
+    flex-direction: column;
+  }
+
+  .community-page__skeleton-image {
+    flex-basis: auto;
+    aspect-ratio: 16 / 10;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .community-page__item {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .community-page__empty-goose,
+  .community-page__skeleton-image::after,
+  .community-page__skeleton-line::after {
+    animation: none;
+  }
 }
 </style>

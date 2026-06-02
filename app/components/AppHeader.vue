@@ -1,5 +1,11 @@
 <template>
-  <header class="app-header">
+  <header
+    class="app-header"
+    :class="{
+      'app-header--scrolled': isScrolled,
+      'app-header--hidden': isHeaderHidden,
+    }"
+  >
     <div class="app-header__inner">
       <NuxtLink
         to="/"
@@ -27,6 +33,7 @@
             <NuxtLink
               :to="item.to"
               class="app-header__link"
+              active-class="app-header__link--active"
             >
               {{ item.label }}
             </NuxtLink>
@@ -42,9 +49,10 @@
           <li v-else>
             <NuxtLink
               to="/profile"
-              class="app-header__user-name app-header__user-name--link"
+              class="app-header__link app-header__link--profile"
+              active-class="app-header__link--active"
             >
-              {{ displayName }}
+              {{ headerProfileLabel }}
             </NuxtLink>
           </li>
         </ul>
@@ -91,6 +99,7 @@
               <NuxtLink
                 :to="item.to"
                 class="app-header__drawer-link"
+                active-class="app-header__drawer-link--active"
                 @click="closeMenu"
               >
                 {{ item.label }}
@@ -108,10 +117,11 @@
             <li v-else>
               <NuxtLink
                 to="/profile"
-                class="app-header__drawer-link app-header__drawer-link--user"
+                class="app-header__drawer-link"
+                active-class="app-header__drawer-link--active"
                 @click="closeMenu"
               >
-                {{ displayName }}
+                {{ headerProfileLabel }}
               </NuxtLink>
             </li>
           </ul>
@@ -143,12 +153,31 @@ const navItems = [
   { id: 'nav-about', label: 'О нас', to: '/about' },
 ] as const
 
-const { user, displayName } = useAuth()
+const { user } = useAuth()
 const route = useRoute()
 const isMenuOpen = ref(false)
+const isScrolled = ref(false)
+const isHeaderHidden = ref(false)
+let lastScrollY = 0
+
+const headerProfileLabel = computed(() => {
+  const nickname = user.value?.nickname?.trim()
+  if (nickname) {
+    return nickname
+  }
+  const name = user.value?.name?.trim()
+  return name && !name.includes('@') ? name : 'Профиль'
+})
 
 function closeMenu() {
   isMenuOpen.value = false
+}
+
+function onScroll() {
+  const scrollY = window.scrollY
+  isScrolled.value = scrollY > 8
+  isHeaderHidden.value = !isMenuOpen.value && scrollY > 120 && scrollY > lastScrollY
+  lastScrollY = scrollY
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -169,6 +198,9 @@ watch(isMenuOpen, (value) => {
     return
   }
   document.body.style.overflow = value ? 'hidden' : ''
+  if (value) {
+    isHeaderHidden.value = false
+  }
 })
 
 onUnmounted(() => {
@@ -176,6 +208,7 @@ onUnmounted(() => {
     return
   }
   window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('scroll', onScroll)
   document.body.style.overflow = ''
 })
 
@@ -183,7 +216,10 @@ onMounted(() => {
   if (!import.meta.client) {
     return
   }
+  lastScrollY = window.scrollY
+  onScroll()
   window.addEventListener('keydown', onKeydown)
+  window.addEventListener('scroll', onScroll, { passive: true })
 })
 </script>
 
@@ -193,9 +229,24 @@ onMounted(() => {
   top: 0;
   z-index: 30;
   width: 100%;
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom: 1px solid rgba(225, 231, 240, 0.95);
-  backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.78);
+  border-bottom: 1px solid rgba(225, 231, 240, 0.72);
+  backdrop-filter: blur(18px);
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.3s ease;
+}
+
+.app-header--scrolled {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(218, 227, 240, 0.9);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.app-header--hidden {
+  transform: translateY(-110%);
 }
 
 .app-header__inner {
@@ -214,12 +265,18 @@ onMounted(() => {
   align-items: center;
   flex-shrink: 0;
   line-height: 0;
+  transition: transform 0.2s ease;
+}
+
+.app-header__logo-link:hover,
+.app-header__logo-link:focus-visible {
+  animation: header-logo-step 0.55s ease;
 }
 
 .app-header__logo {
   display: block;
   width: auto;
-  height: clamp(3rem, 13vw, 4rem);
+  height: clamp(3.15rem, 13vw, 4.15rem);
   max-width: min(10rem, 42vw);
 }
 
@@ -281,22 +338,34 @@ onMounted(() => {
   text-decoration: none;
   transition:
     background-color 0.2s ease,
-    color 0.2s ease;
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .app-header__drawer-link:hover,
 .app-header__drawer-link:focus-visible {
   background: #edf3ff;
   color: #1a5fff;
-}
-
-.app-header__drawer-link--user {
-  color: #1a5fff;
+  transform: translateX(0.2rem);
 }
 
 .app-header__drawer-cta-link,
 .app-header__cta-link {
   text-decoration: none;
+}
+
+.app-header__cta-link {
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(26, 95, 255, 0.2);
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.app-header__cta-link:hover,
+.app-header__cta-link:focus-visible {
+  box-shadow: 0 12px 26px rgba(26, 95, 255, 0.28);
+  transform: translateY(-2px);
 }
 
 .app-header__drawer-cta {
@@ -327,6 +396,34 @@ onMounted(() => {
   }
 }
 
+@keyframes header-logo-step {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+
+  35% {
+    transform: translateY(-4px) rotate(-2deg);
+  }
+
+  70% {
+    transform: translateY(-1px) rotate(1deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header,
+  .app-header__drawer-link,
+  .app-header__cta-link {
+    transition-duration: 0.01ms;
+  }
+
+  .app-header__logo-link:hover,
+  .app-header__logo-link:focus-visible {
+    animation: none;
+  }
+}
+
 @media (min-width: 768px) {
   .app-header__inner {
     padding-inline: 1.25rem;
@@ -340,7 +437,7 @@ onMounted(() => {
   }
 
   .app-header__logo {
-    height: 4.25rem;
+    height: 4.5rem;
     max-width: none;
   }
 
@@ -361,41 +458,37 @@ onMounted(() => {
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.875rem 1.25rem;
+    gap: 0.75rem;
     min-width: 0;
   }
 
   .app-header__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0 0.75rem;
+    border-radius: 999px;
     font-size: 1rem;
     font-weight: 500;
     color: #111827;
     line-height: 1.4;
     text-decoration: none;
     white-space: nowrap;
-    transition: color 0.15s ease;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
   }
 
   .app-header__link:hover,
-  .app-header__link:focus-visible,
-  .app-header__user-name--link:hover,
-  .app-header__user-name--link:focus-visible {
+  .app-header__link:focus-visible {
     color: #1a5fff;
   }
 
-  .app-header__user-name {
-    display: inline-block;
+  .app-header__link--profile {
     max-width: 12rem;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 1rem;
     font-weight: 600;
-    color: #172033;
-  }
-
-  .app-header__user-name--link {
-    text-decoration: none;
-    transition: color 0.15s ease;
   }
 
   .app-header__cta-link {

@@ -202,10 +202,15 @@ const {
 }
 
 .burger-menu-fade-enter-active,
-.burger-menu-fade-leave-active,
+.burger-menu-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
 .burger-menu-drawer-enter-active,
 .burger-menu-drawer-leave-active {
-  transition: all 0.25s ease;
+  transition:
+    opacity 0.28s ease,
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .burger-menu-fade-enter-from,
@@ -222,6 +227,16 @@ const {
 @media (min-width: 1024px) {
   .burger-menu {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .burger-menu__line,
+  .burger-menu-fade-enter-active,
+  .burger-menu-fade-leave-active,
+  .burger-menu-drawer-enter-active,
+  .burger-menu-drawer-leave-active {
+    transition-duration: 0.01ms;
   }
 }
 </style>

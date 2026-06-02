@@ -1,5 +1,8 @@
 <template>
   <div class="plan-form">
+    <p class="plan-form__eyebrow">
+      Конструктор прогулки
+    </p>
     <h1 class="plan-form__title">
       Создайте свой маршрут
     </h1>
@@ -587,6 +590,15 @@ onUnmounted(() => {
   line-height: 1.15;
 }
 
+.plan-form__eyebrow {
+  margin: 0 0 0.35rem;
+  color: #2b65ff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .plan-form__field {
   display: flex;
   flex-direction: column;
@@ -596,6 +608,10 @@ onUnmounted(() => {
   background: #fff;
   border: 1px solid #edf1f7;
   min-width: 0;
+}
+
+.plan-form__field + .plan-form__field {
+  margin-top: -0.15rem;
 }
 
 .plan-form__field--compact {

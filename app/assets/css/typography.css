@@ -16,6 +16,18 @@
   --color-text-muted: #666666;
   --color-link: #1a5fff;
   --color-link-hover: #0d4fe6;
+  --color-brand: #2563eb;
+  --color-brand-dark: #1d4ed8;
+  --color-brand-soft: #e8f0ff;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f6f8fc;
+  --color-border: #e3e9f2;
+  --color-accent: #f59e0b;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --shadow-card: 0 8px 28px rgba(15, 30, 60, 0.08);
+  --shadow-card-hover: 0 16px 38px rgba(15, 30, 60, 0.13);
 }
 
 html {

@@ -1,5 +1,12 @@
 <template>
-  <article class="walk-card">
+  <article
+    class="walk-card"
+    :class="{ 'walk-card--clickable': !!display.walkId }"
+    :role="display.walkId ? 'link' : undefined"
+    :tabindex="display.walkId ? 0 : undefined"
+    @click="openWalk"
+    @keydown.enter.self.prevent="openWalk"
+  >
     <div class="walk-card__visual">
       <div class="walk-card__carousel">
         <img
@@ -26,10 +33,32 @@
             :class="{ 'walk-card__dot--active': index === activeSlide }"
             :aria-selected="index === activeSlide"
             :aria-label="`Фото ${index + 1} из ${imageList.length}`"
-            @click="activeSlide = index"
+            @click.stop="activeSlide = index"
           />
         </div>
       </div>
+      <button
+        v-if="showFavoriteButton"
+        type="button"
+        class="walk-card__heart"
+        :class="{ 'walk-card__heart--on': heartFilled }"
+        :disabled="favoriteDisabled"
+        :aria-label="heartFilled ? 'В избранном' : 'В избранное'"
+        @click.stop="onHeartClick"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+      </button>
     </div>
     <div class="walk-card__main">
       <h3 class="walk-card__title">
@@ -45,6 +74,7 @@
         <NuxtLink
           :to="`/users/${walk.userId}`"
           class="walk-card__author-link"
+          @click.stop
         >
           {{ walk.authorDisplayName }}
         </NuxtLink>
@@ -157,44 +187,6 @@
       <p class="walk-card__desc">
         {{ display.description }}
       </p>
-      <div class="walk-card__actions">
-        <NuxtLink
-          v-if="display.walkId"
-          :to="`/walks/${display.walkId}`"
-          class="walk-card__more"
-        >
-          Подробнее
-        </NuxtLink>
-        <button
-          v-else
-          type="button"
-          class="walk-card__more"
-        >
-          Подробнее
-        </button>
-        <button
-          v-if="showFavoriteButton"
-          type="button"
-          class="walk-card__heart"
-          :class="{ 'walk-card__heart--on': heartFilled }"
-          :disabled="favoriteDisabled"
-          :aria-label="heartFilled ? 'В избранном' : 'В избранное'"
-          @click.stop="onHeartClick"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            stroke="currentColor"
-            stroke-width="1.5"
-            aria-hidden="true"
-          >
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-          </svg>
-        </button>
-      </div>
     </div>
   </article>
 </template>
@@ -283,6 +275,12 @@ function onHeartClick() {
     return
   }
   emit('toggleFavorite', props.walk.id)
+}
+
+function openWalk() {
+  if (display.value.walkId) {
+    void navigateTo(`/walks/${display.value.walkId}`)
+  }
 }
 
 const PLACEHOLDER_IMAGE
@@ -402,9 +400,29 @@ watch(imageList, (list) => {
   background: #fff;
   border: 1px solid #e8ecf2;
   box-shadow: 0 6px 24px rgba(15, 30, 60, 0.06);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.walk-card:hover {
+  border-color: #d7e0ee;
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-3px);
+}
+
+.walk-card--clickable {
+  cursor: pointer;
+}
+
+.walk-card--clickable:focus-visible {
+  outline: 3px solid rgba(43, 101, 255, 0.28);
+  outline-offset: 3px;
 }
 
 .walk-card__visual {
+  position: relative;
   flex-shrink: 0;
   width: 100%;
   max-width: 260px;
@@ -420,7 +438,7 @@ watch(imageList, (list) => {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 280 / 200;
+  aspect-ratio: 16 / 10;
   object-fit: cover;
   vertical-align: middle;
 }
@@ -593,53 +611,30 @@ watch(imageList, (list) => {
   line-height: 1.5;
   color: #8e8e8e;
   max-width: 52ch;
-}
-
-.walk-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.walk-card__more {
-  flex: 1;
-  min-width: 160px;
-  min-height: 46px;
-  padding: 0 1.25rem;
-  border: none;
-  border-radius: 14px;
-  background: #2b65ff;
-  color: #fff;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-}
-
-.walk-card__more:hover {
-  background: #1f52e6;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .walk-card__heart {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   padding: 0;
   border: none;
   border-radius: 14px;
-  background: #e8f0ff;
+  background: rgba(255, 255, 255, 0.92);
   color: #2b65ff;
   cursor: pointer;
   transition: background-color 0.15s ease;
+  box-shadow: 0 5px 16px rgba(15, 30, 60, 0.16);
+  backdrop-filter: blur(8px);
 }
 
 .walk-card__heart:hover {
