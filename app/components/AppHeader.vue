@@ -148,7 +148,6 @@
 import logoSrc from '~/assets/logo-gosee.svg'
 
 const navItems = [
-  { id: 'nav-direction', label: 'Направление', to: '/napravlenie' },
   { id: 'nav-community', label: 'Сообщество', to: '/community' },
   { id: 'nav-about', label: 'О нас', to: '/about' },
 ] as const

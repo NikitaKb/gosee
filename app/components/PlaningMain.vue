@@ -4,7 +4,7 @@
       class="home-hero"
       :style="{ '--home-hero-image': `url(${moscowHeroImage})` }"
     >
-      <div class="home-hero__card">
+      <div class="home-hero__card home-reveal">
         <p class="home-hero__eyebrow">
           Маршруты для прогулок по городу
         </p>
@@ -12,58 +12,61 @@
           Планируйте свою прогулку онлайн
         </h1>
         <p class="home-hero__lead">
-          Соберите маршрут на карте, заранее посмотрите панорамы улиц и поделитесь прогулкой с сообществом.
+          Соберите маршрут на карте, заранее посмотрите панорамы улиц
+          и поделитесь прогулкой с сообществом.
         </p>
 
-        <div class="home-hero__fields">
-          <label class="home-hero__field">
-            <img
-              :src="geoIcon"
-              alt=""
-              class="home-hero__field-icon"
-              width="20"
-              height="28"
-            >
-            <TextField
-              v-model="destination"
-              placeholder="Куда хотите поехать..."
-              embedded
-              class="home-hero__field-input"
-            />
-          </label>
-          <label class="home-hero__field">
-            <img
-              :src="roadIcon"
-              alt=""
-              class="home-hero__field-icon"
-              width="22"
-              height="22"
-            >
-            <TextField
-              v-model="travelType"
-              placeholder="Тип путешествия"
-              embedded
-              class="home-hero__field-input"
-            />
-          </label>
-        </div>
+        <div class="home-search">
+          <div class="home-search__fields">
+            <label class="home-search__field">
+              <img
+                :src="geoIcon"
+                alt=""
+                class="home-search__field-icon"
+                width="20"
+                height="28"
+              >
+              <TextField
+                v-model="destination"
+                placeholder="Куда хотите пойти?"
+                embedded
+                class="home-search__field-input"
+              />
+            </label>
+            <label class="home-search__field">
+              <img
+                :src="roadIcon"
+                alt=""
+                class="home-search__field-icon"
+                width="22"
+                height="22"
+              >
+              <TextField
+                v-model="travelType"
+                placeholder="Пешком, вело, авто..."
+                embedded
+                class="home-search__field-input"
+              />
+            </label>
+          </div>
 
-        <ButtonBlue
-          type="button"
-          class="home-hero__submit"
-          @click="onSearch"
-        >
-          <span class="home-hero__submit-inner">
-            <img
-              :src="searchIcon"
-              alt=""
-              class="home-hero__submit-icon"
-              width="20"
-              height="20"
-            >
-            Найти подходящий маршрут
-          </span>
-        </ButtonBlue>
+          <ButtonBlue
+            type="button"
+            class="home-search__submit"
+            @click="onSearch"
+          >
+            <span class="home-search__submit-inner">
+              <img
+                :src="searchIcon"
+                alt=""
+                class="home-search__submit-icon"
+                width="20"
+                height="20"
+              >
+              Найти подходящий маршрут
+            </span>
+          </ButtonBlue>
+        </div>
 
         <ul class="home-hero__stats">
           <li
@@ -78,14 +81,17 @@
       </div>
     </section>
 
-    <section class="home-section home-section--white">
+    <section class="home-section home-section--routes">
       <div class="home-section__inner">
-        <header class="home-section__header">
+        <header class="home-section__header home-reveal">
+          <p class="home-section__eyebrow">
+            Куда отправиться
+          </p>
           <h2 class="home-section__title">
-            Популярные направления
+            Популярные маршруты
           </h2>
           <p class="home-section__lead">
-            Исследуйте самые востребованные места для путешествий и прогулок.
+            Идеи для прогулок появляются из опубликованных маршрутов сообщества.
           </p>
         </header>
 
@@ -94,9 +100,10 @@
           class="destination-grid"
         >
           <article
-            v-for="place in popularDestinations"
+            v-for="(place, index) in popularDestinations"
             :key="place.id"
-            class="destination-card"
+            class="destination-card home-reveal"
+            :style="{ transitionDelay: `${index * 90}ms` }"
             role="link"
             tabindex="0"
             @click="navigateTo(place.to)"
@@ -144,29 +151,71 @@
         </div>
         <p
           v-else
-          class="home-section__empty"
+          class="home-section__empty home-reveal"
         >
           Пока нет опубликованных маршрутов. Создайте первый маршрут, и он появится здесь.
         </p>
       </div>
     </section>
 
-    <section class="home-section home-section--blue-soft">
-      <div class="home-section__inner">
-        <header class="home-section__header">
+    <section class="home-story">
+      <div class="home-story__inner">
+        <header class="home-section__header home-reveal">
+          <p class="home-section__eyebrow">
+            Как это работает
+          </p>
           <h2 class="home-section__title">
-            Почему выбирают нас
+            От идеи до прогулки за несколько спокойных шагов
+          </h2>
+        </header>
+
+        <div class="story-track">
+          <article
+            v-for="(step, index) in storySteps"
+            :key="step.id"
+            class="story-step home-reveal"
+            :style="{ transitionDelay: `${index * 80}ms` }"
+          >
+            <span class="story-step__icon">
+              <img
+                :src="step.icon"
+                alt=""
+                width="24"
+                height="24"
+                aria-hidden="true"
+              >
+            </span>
+            <h3 class="story-step__title">
+              {{ step.title }}
+            </h3>
+            <p class="story-step__text">
+              {{ step.text }}
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-section home-section--benefits">
+      <div class="home-section__inner">
+        <header class="home-section__header home-reveal">
+          <p class="home-section__eyebrow">
+            Почему GoSee
+          </p>
+          <h2 class="home-section__title">
+            Сервис для маршрутов, которые ощущаются живыми
           </h2>
           <p class="home-section__lead">
-            Планируйте прогулку заранее, сохраняйте маршруты и открывайте новые места вместе с GoSee.
+            Планируйте заранее, сохраняйте маршруты и открывайте новые места вместе с GoSee.
           </p>
         </header>
 
         <div class="benefit-grid">
           <article
-            v-for="item in benefits"
+            v-for="(item, index) in benefits"
             :key="item.id"
-            class="benefit-card"
+            class="benefit-card home-reveal"
+            :style="{ transitionDelay: `${index * 70}ms` }"
           >
             <span class="benefit-card__icon-wrap">
               <img
@@ -190,7 +239,7 @@
     </section>
 
     <section class="home-cta">
-      <div class="home-cta__inner">
+      <div class="home-cta__inner home-reveal">
         <span class="home-cta__icon-wrap">
           <img
             :src="panoramaIcon"
@@ -205,7 +254,7 @@
           Готовы построить маршрут?
         </h2>
         <p class="home-cta__text">
-          Выберите точки прогулки, добавьте фото и посмотрите маршрут на карте перед публикацией.
+          Выберите точки прогулки, добавьте фото и посмотрите путь на карте перед публикацией.
         </p>
         <NuxtLink
           to="/planning"
@@ -239,6 +288,7 @@ import walkingIcon from '~/assets/images/icons/walking.svg'
 
 const destination = ref('')
 const travelType = ref('')
+let revealObserver: IntersectionObserver | undefined
 
 const { data: routesData } = await useAsyncData('home-popular-routes', () =>
   $fetch<{ walks: WalkSummary[]; paceOptions: string[] }>('/api/routes', {
@@ -247,10 +297,10 @@ const { data: routesData } = await useAsyncData('home-popular-routes', () =>
 )
 
 const stats = [
-  { id: 'd', value: '500+', label: 'Направлений' },
-  { id: 'u', value: '10000+', label: 'Пользователей' },
-  { id: 'c', value: '50+', label: 'Городов России' },
-  { id: 'r', value: '4.9', label: 'Рейтинг' },
+  { id: 'd', value: '500+', label: 'направлений' },
+  { id: 'u', value: '10000+', label: 'пользователей' },
+  { id: 'c', value: '50+', label: 'городов России' },
+  { id: 'r', value: '4.9', label: 'рейтинг' },
 ] as const
 
 const popularDestinations = computed(() =>
@@ -264,6 +314,33 @@ const popularDestinations = computed(() =>
     to: `/walks/${w.id}`,
   })),
 )
+
+const storySteps = [
+  {
+    id: 'idea',
+    title: 'Выберите настроение',
+    text: 'Город, тема и темп задают маршруту характер еще до первой точки.',
+    icon: searchIcon,
+  },
+  {
+    id: 'map',
+    title: 'Соберите линию',
+    text: 'Добавляйте места на карту и сразу видьте, как складывается путь.',
+    icon: mapIcon,
+  },
+  {
+    id: 'preview',
+    title: 'Проверьте глазами',
+    text: 'Панорамы помогают почувствовать улицу до того, как вы выйдете из дома.',
+    icon: panoramaIcon,
+  },
+  {
+    id: 'share',
+    title: 'Сохраните находку',
+    text: 'Опубликуйте прогулку, чтобы другие могли пройти ее в своем ритме.',
+    icon: walkingIcon,
+  },
+] as const
 
 const benefits = [
   {
@@ -281,7 +358,7 @@ const benefits = [
   {
     id: 'privacy',
     title: 'Защита данных',
-    text: 'Ваши маршруты и профиль хранятся аккуратно и доступны только там, где нужно.',
+    text: 'Профиль, маршруты и избранное хранятся аккуратно и предсказуемо.',
     icon: shieldIcon,
   },
   {
@@ -322,11 +399,40 @@ function formatBadge(walk: WalkSummary) {
     default: return 'Пешая'
   }
 }
+
+onMounted(() => {
+  const items = Array.from(document.querySelectorAll<HTMLElement>('.home-reveal'))
+
+  if (!('IntersectionObserver' in window)) {
+    items.forEach(item => item.classList.add('is-visible'))
+    return
+  }
+
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) {
+          return
+        }
+        entry.target.classList.add('is-visible')
+        revealObserver?.unobserve(entry.target)
+      })
+    },
+    { threshold: 0.18, rootMargin: '0px 0px -7% 0px' },
+  )
+
+  items.forEach(item => revealObserver?.observe(item))
+})
+
+onBeforeUnmount(() => {
+  revealObserver?.disconnect()
+})
 </script>
 
 <style scoped>
 .home-page {
   width: 100%;
+  overflow: hidden;
   background: #fff;
   color: #111827;
 }
@@ -337,10 +443,17 @@ function formatBadge(walk: WalkSummary) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5.5rem 1rem 4.5rem;
+  padding: clamp(3.5rem, 7vw, 6rem) 1rem;
   background:
-    linear-gradient(90deg, rgba(9, 26, 54, 0.78), rgba(9, 26, 54, 0.44)),
+    linear-gradient(90deg, rgba(9, 26, 54, 0.78), rgba(9, 26, 54, 0.42)),
     var(--home-hero-image) center / cover;
+}
+
+.home-section__inner,
+.home-story__inner,
+.home-cta__inner {
+  width: min(100%, 1180px);
+  margin: 0 auto;
 }
 
 .home-hero__card {
@@ -348,110 +461,119 @@ function formatBadge(walk: WalkSummary) {
   width: min(100%, 760px);
   margin-right: min(34vw, 360px);
   padding: clamp(1.35rem, 4vw, 2rem);
-  background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 24px 70px rgba(5, 18, 42, 0.24);
   backdrop-filter: blur(18px);
 }
 
-.home-hero__title,
-.home-section__title,
-.home-cta__title {
-  margin: 0;
-  color: #1a5fff;
-  font-size: clamp(1.35rem, 2.6vw, 1.75rem);
-  font-weight: 600;
-  line-height: 1.25;
-  text-align: center;
-}
-
-.home-hero__title {
-  color: #172033;
-  margin-bottom: 0.85rem;
-  font-size: clamp(2.25rem, 5vw, 3.65rem);
-  font-weight: 700;
-  letter-spacing: -0.055em;
-  text-align: left;
-}
-
-.home-hero__eyebrow {
+.home-hero__eyebrow,
+.home-section__eyebrow {
   margin: 0 0 0.8rem;
   color: #1a5fff;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.home-hero__lead {
-  max-width: 58ch;
-  margin: 0 0 1.25rem;
-  color: #526174;
-  line-height: 1.65;
+.home-hero__title {
+  margin: 0;
+  color: #172033;
+  font-size: clamp(2.25rem, 5vw, 3.65rem);
+  font-weight: 760;
+  line-height: 1.08;
+  letter-spacing: 0;
 }
 
-.home-hero__fields {
+.home-hero__lead {
+  max-width: 60ch;
+  margin: 1.25rem 0 0;
+  color: #526174;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.home-search {
+  box-sizing: border-box;
+  margin-top: 1.35rem;
+  padding: 0;
+  border: 1px solid rgba(218, 227, 240, 0.95);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.home-search__fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem 1.25rem;
-  margin-bottom: 1rem;
+  gap: 0;
+  margin-bottom: 0;
+  border-bottom: 1px solid #dfe5ef;
 }
 
-.home-hero__field {
+.home-search__field {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   min-height: 58px;
   padding: 0 1rem;
+  border: none;
+  border-right: 1px solid #dfe5ef;
+  border-radius: 0;
   background: #fff;
-  border: 1px solid #dfe5ef;
-  border-radius: 8px;
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
-.home-hero__field:focus-within {
-  border-color: #1a5fff;
-  box-shadow: 0 0 0 3px rgba(26, 95, 255, 0.12);
+.home-search__field:focus-within {
+  box-shadow: inset 0 0 0 2px rgba(26, 95, 255, 0.2);
+  transform: translateY(-1px);
 }
 
-.home-hero__field-icon,
+.home-search__field:last-child {
+  border-right: none;
+}
+
+.home-search__field-icon,
 .destination-card__meta img,
-.benefit-card__icon {
+.benefit-card__icon,
+.story-step__icon img {
   flex-shrink: 0;
   object-fit: contain;
   filter: brightness(0) saturate(100%) invert(32%) sepia(95%) saturate(2876%)
     hue-rotate(212deg) brightness(98%) contrast(104%);
 }
 
-.home-hero__field-input {
+.home-search__field-input {
   flex: 1;
   min-width: 0;
 }
 
-.home-hero__submit {
+.home-search__submit {
   width: 100%;
-  margin-bottom: 1.45rem;
 }
 
-.home-hero__submit :deep(.btn-blue) {
+.home-search__submit :deep(.btn-blue) {
   width: 100%;
   min-height: 46px;
-  border-radius: 8px;
+  border-radius: 0 0 13px 13px;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 700;
+  box-shadow: none;
 }
 
-.home-hero__submit-inner {
+.home-search__submit-inner {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
 }
 
-.home-hero__submit-icon {
+.home-search__submit-icon {
   flex-shrink: 0;
   filter: brightness(0) invert(1);
 }
@@ -459,9 +581,9 @@ function formatBadge(walk: WalkSummary) {
 .home-hero__stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
-  margin: 0;
-  padding: 0.3rem 0 0;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+  padding: 0;
   list-style: none;
 }
 
@@ -470,54 +592,67 @@ function formatBadge(walk: WalkSummary) {
   flex-direction: column;
   gap: 0.2rem;
   min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid rgba(218, 227, 240, 0.82);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .home-hero__stat-value {
-  font-size: clamp(1.2rem, 2vw, 1.45rem);
-  font-weight: 700;
-  line-height: 1.1;
   color: #1a5fff;
+  font-size: clamp(1.18rem, 2vw, 1.45rem);
+  font-weight: 800;
+  line-height: 1.1;
 }
 
 .home-hero__stat-label {
-  color: #111827;
-  font-size: 0.95rem;
+  color: #172033;
+  font-size: 0.88rem;
   line-height: 1.25;
 }
 
-.home-section {
+.home-section,
+.home-story,
+.home-cta {
   box-sizing: border-box;
   padding: clamp(4rem, 8vw, 6.4rem) 1rem;
 }
 
-.home-section--white {
+.home-section--routes {
   background:
-    radial-gradient(circle at 84% 10%, rgba(232, 240, 255, 0.9), transparent 22rem),
+    radial-gradient(circle at 88% 12%, rgba(232, 240, 255, 0.95), transparent 22rem),
     #fff;
 }
 
-.home-section--blue-soft {
+.home-section--benefits {
   background:
     radial-gradient(circle at 10% 20%, rgba(196, 230, 255, 0.72), transparent 30rem),
     radial-gradient(circle at 88% 85%, rgba(226, 236, 255, 0.9), transparent 28rem),
     linear-gradient(135deg, #eef8ff 0%, #f8fbff 52%, #fff 100%);
 }
 
-.home-section__inner {
-  width: min(100%, 1180px);
-  margin: 0 auto;
-}
-
 .home-section__header {
+  max-width: 720px;
   margin: 0 auto 2.75rem;
   text-align: center;
+}
+
+.home-section__title,
+.home-cta__title {
+  margin: 0;
+  color: #172033;
+  font-size: clamp(1.8rem, 3vw, 2.65rem);
+  font-weight: 740;
+  line-height: 1.14;
+  text-align: center;
+  letter-spacing: 0;
 }
 
 .home-section__lead {
   max-width: 620px;
   margin: 0.85rem auto 0;
   color: #64748b;
-  font-size: 0.95rem;
+  font-size: 0.96rem;
   line-height: 1.65;
 }
 
@@ -526,10 +661,11 @@ function formatBadge(walk: WalkSummary) {
   margin: 0 auto;
   padding: 1.25rem;
   border: 1px solid #dfe5ef;
-  border-radius: 8px;
+  border-radius: 16px;
   background: #fff;
   color: #3f4756;
   text-align: center;
+  box-shadow: 0 12px 30px rgba(31, 65, 115, 0.07);
 }
 
 .destination-grid {
@@ -546,16 +682,17 @@ function formatBadge(walk: WalkSummary) {
   box-shadow: 0 12px 34px rgba(31, 65, 115, 0.09);
   cursor: pointer;
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
+    opacity 0.6s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
 }
 
 .destination-card:hover,
 .destination-card:focus-visible {
   border-color: rgba(37, 99, 235, 0.28);
-  box-shadow: 0 20px 44px rgba(31, 65, 115, 0.16);
-  transform: translateY(-6px);
+  box-shadow: 0 22px 48px rgba(31, 65, 115, 0.16);
+  transform: translateY(-7px);
 }
 
 .destination-card:focus-visible {
@@ -586,13 +723,17 @@ function formatBadge(walk: WalkSummary) {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
+  max-width: calc(100% - 1.5rem);
   padding: 0.45rem 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
   background: rgba(26, 95, 255, 0.9);
   color: #fff;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   box-shadow: 0 6px 18px rgba(17, 74, 210, 0.24);
   backdrop-filter: blur(10px);
 }
@@ -605,7 +746,7 @@ function formatBadge(walk: WalkSummary) {
   margin: 0 0 0.7rem;
   color: #111827;
   font-size: 1.08rem;
-  font-weight: 700;
+  font-weight: 750;
   line-height: 1.3;
 }
 
@@ -624,6 +765,89 @@ function formatBadge(walk: WalkSummary) {
   line-height: 1.3;
 }
 
+.home-story {
+  background: #fff;
+}
+
+.story-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.story-track::before {
+  position: absolute;
+  top: 39px;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(26, 95, 255, 0.4), transparent);
+  content: "";
+}
+
+.story-step,
+.benefit-card {
+  border: 1px solid rgba(214, 226, 241, 0.9);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 28px rgba(50, 84, 130, 0.06);
+  text-align: left;
+  backdrop-filter: blur(10px);
+  transition:
+    opacity 0.6s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
+}
+
+.story-step {
+  position: relative;
+  min-height: 240px;
+  padding: 1.25rem;
+}
+
+.story-step:hover,
+.benefit-card:hover {
+  border-color: rgba(37, 99, 235, 0.25);
+  box-shadow: 0 18px 38px rgba(50, 84, 130, 0.13);
+  transform: translateY(-6px);
+}
+
+.story-step__icon,
+.benefit-card__icon-wrap,
+.home-cta__icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.story-step__icon,
+.benefit-card__icon-wrap {
+  width: 54px;
+  height: 54px;
+  margin-bottom: 1.25rem;
+  border-radius: 17px;
+  background: linear-gradient(135deg, #e5efff, #d7f7ff);
+}
+
+.story-step__title,
+.benefit-card__title {
+  margin: 0 0 0.7rem;
+  color: #111827;
+  font-size: 1.02rem;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.story-step__text,
+.benefit-card__text {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.58;
+}
+
 .benefit-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -633,58 +857,10 @@ function formatBadge(walk: WalkSummary) {
 .benefit-card {
   min-height: 220px;
   padding: 1.45rem;
-  border: 1px solid rgba(214, 226, 241, 0.9);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.76);
-  box-shadow: 0 10px 28px rgba(50, 84, 130, 0.06);
-  text-align: left;
-  backdrop-filter: blur(10px);
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
-}
-
-.benefit-card:hover {
-  border-color: rgba(37, 99, 235, 0.25);
-  box-shadow: 0 16px 34px rgba(50, 84, 130, 0.12);
-  transform: translateY(-5px);
-}
-
-.benefit-card__icon-wrap,
-.home-cta__icon-wrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #dceaff;
-}
-
-.benefit-card__icon-wrap {
-  width: 52px;
-  height: 52px;
-  margin-bottom: 1.35rem;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #e5efff, #cfe0ff);
-}
-
-.benefit-card__title {
-  margin: 0 0 0.7rem;
-  color: #111827;
-  font-size: 1.02rem;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.benefit-card__text {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.9rem;
-  line-height: 1.55;
 }
 
 .home-cta {
-  box-sizing: border-box;
-  padding: clamp(1.2rem, 4vw, 3rem) 1rem clamp(4rem, 8vw, 6rem);
+  padding-top: clamp(1.2rem, 4vw, 3rem);
   background: #fff;
 }
 
@@ -692,8 +868,6 @@ function formatBadge(walk: WalkSummary) {
   position: relative;
   box-sizing: border-box;
   overflow: hidden;
-  width: min(100%, 1180px);
-  margin: 0 auto;
   padding: clamp(2.8rem, 6vw, 4.5rem) 1.25rem;
   border-radius: 28px;
   background:
@@ -744,23 +918,24 @@ function formatBadge(walk: WalkSummary) {
   justify-content: center;
   gap: 0.65rem;
   min-width: min(100%, 310px);
-  min-height: 44px;
+  min-height: 46px;
   padding: 0 1.35rem;
   border-radius: 14px;
   background: #fff;
   color: #1a5fff;
   box-shadow: 0 10px 22px rgba(11, 55, 146, 0.16);
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
   transition:
-    transform 0.15s ease,
-    background-color 0.15s ease;
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .home-cta__link:hover {
   background: #edf3ff;
   color: #1a5fff;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .home-cta__link img {
@@ -768,10 +943,22 @@ function formatBadge(walk: WalkSummary) {
     hue-rotate(212deg) brightness(98%) contrast(104%);
 }
 
-@media (max-width: 860px) {
+.home-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s ease;
+}
+
+.home-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 980px) {
   .home-hero {
     min-height: auto;
-    padding-top: 3rem;
   }
 
   .home-hero__card {
@@ -779,21 +966,40 @@ function formatBadge(walk: WalkSummary) {
   }
 
   .destination-grid,
+  .story-track,
   .benefit-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .story-track::before {
+    display: none;
   }
 }
 
 @media (max-width: 640px) {
-  .home-hero__fields,
+  .home-hero {
+    padding-top: 3rem;
+  }
+
+  .home-search__fields,
   .home-hero__stats,
   .destination-grid,
+  .story-track,
   .benefit-grid {
     grid-template-columns: 1fr;
   }
 
-  .home-hero__card {
-    border-radius: 14px;
+  .home-search {
+    border-radius: 18px;
+  }
+
+  .home-search__fields {
+    border-bottom: none;
+  }
+
+  .home-search__field {
+    border-right: none;
+    border-bottom: 1px solid #dfe5ef;
   }
 
   .home-hero__stat {
@@ -804,5 +1010,17 @@ function formatBadge(walk: WalkSummary) {
   .home-cta__link {
     width: 100%;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-search__field,
+  .destination-card,
+  .story-step,
+  .benefit-card,
+  .home-cta__link,
+  .home-reveal {
+    transition-duration: 0.01ms;
+  }
+
 }
 </style>
